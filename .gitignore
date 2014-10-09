@@ -1,0 +1,9 @@
+*
+!.gitignore
+
+!swtg_mapper.py
+!qt
+!qt/*.py
+!invisible.png
+!README.md
+!LICENSE
