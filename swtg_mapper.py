@@ -16,6 +16,8 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 
+from __future__ import division, print_function
+
 import sys
 import itertools
 import os.path
@@ -91,32 +93,25 @@ with open(content('SWG_Super Win the Game.vdd'), 'rb') as f:
     #f.write(pretty_xml(root))
 
 
-campaign = root.find('campaign')
 
-def read_npc_colors(fname):
-    img = QImage(content(fname))
-    d = {}
-    print(fname, img.height())
-    for y in range(img.height()):
-        r = img.pixel(0,y)
-        g = img.pixel(1,y)
-        b = img.pixel(2,y)
-        d[y] = (r,g,b)
-    return d
+img = QImage(content('NPC_Palettes.bmp'))
+npc_colors = [(img.pixel(0, y), img.pixel(1, y), img.pixel(2, y)) for y in range(img.height())]
 
-npc_colors = read_npc_colors('NPC_Palettes.bmp')
-
-def get_random_val_for_npc(range): # see before calling
+def random_int(top):
     n = mersenne.extract_number()
-    f = float(n) / 2**32
-    return int(f * range)
+    f = n/(2**32)
+    return int(f*top)
 
 def find_npc_values(entity_id):
     mersenne.initialize_generator(entity_id) # seed with entity_id
-    val1 = get_random_val_for_npc(8)
-    val2 = get_random_val_for_npc(8)
-    r,g,b = npc_colors[val2]
-    return r, g, b, val1
+    sprite_index = random_int(8)
+    color_index = random_int(8)
+    return npc_colors[color_index], sprite_index
+
+
+
+campaign = root.find('campaign')
+
 
 class Palette(object):
     pass
@@ -214,12 +209,19 @@ for map in maps:
                 w, h = int(size.get('x')), int(size.get('y'))
                 sx, sy = 0, 0
                 if 'Ghost Block' in sprite.get('name'):
-                    sy = 16 # Make ghost blocks fully visible
+                    sy = h*1 # Make ghost blocks fully visible
                 elif 'NPC' in sprite.get('name'):
-                    npc_r, npc_g, npc_b, row = find_npc_values(entity_id)
+                    colors, row = find_npc_values(entity_id)
+                    rgb = [QColor(c).rgb() for c in [qt.red, qt.green, qt.blue]]
+                    colors = dict(zip(rgb, colors))
                     sy = h*row
-                    # TODO: apply r,g,b to the npc's 3 colors
-                
+                    s = s.copy()
+                    for py in range(sy, sy+h):
+                        for px in range(sx, sx+w):
+                            try:
+                                s.setPixel(px, py, colors[s.pixel(px, py)])
+                            except KeyError:
+                                pass
                 g.drawImage(x-w//2, y-h//2, s, sx, sy, w, h)
 
             f.read(16)
