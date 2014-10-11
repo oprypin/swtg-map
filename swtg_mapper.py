@@ -22,6 +22,7 @@ import os.path
 import random
 import struct
 import xml.etree.ElementTree as xml
+import mersenne
 
 
 import qt
@@ -92,6 +93,30 @@ with open(content('SWG_Super Win the Game.vdd'), 'rb') as f:
 
 campaign = root.find('campaign')
 
+def read_npc_colors(fname):
+    img = QImage(content(fname))
+    d = {}
+    print(fname, img.height())
+    for y in range(img.height()):
+        r = img.pixel(0,y)
+        g = img.pixel(1,y)
+        b = img.pixel(2,y)
+        d[y] = (r,g,b)
+    return d
+
+npc_colors = read_npc_colors('NPC_Palettes.bmp')
+
+def get_random_val_for_npc(range): # see before calling
+    n = mersenne.extract_number()
+    f = float(n) / 2**32
+    return int(f * range)
+
+def find_npc_values(entity_id):
+    mersenne.initialize_generator(entity_id) # seed with entity_id
+    val1 = get_random_val_for_npc(8)
+    val2 = get_random_val_for_npc(8)
+    r,g,b = npc_colors[val2]
+    return r, g, b, val1
 
 class Palette(object):
     pass
@@ -173,8 +198,8 @@ for map in maps:
             for _ in range(3):
                 f.read(unpack(f, 'i'))
             entity_id = unpack(f, 'i')
-            entity_id = format(entity_id, '08x')
-            fn = 'SWG_EntInst_{}.ndd'.format(entity_id)
+            entity_id_s = format(entity_id, '08x')
+            fn = 'SWG_EntInst_{}.ndd'.format(entity_id_s)
             with open(content(fn), 'rb') as f2:
                 root = parse_ndd_xml(f2)
             #with open(output(os.path.basename(fn)+'.xml'), 'w') as f2:
@@ -190,6 +215,10 @@ for map in maps:
                 sx, sy = 0, 0
                 if 'Ghost Block' in sprite.get('name'):
                     sy = 16 # Make ghost blocks fully visible
+                elif 'NPC' in sprite.get('name'):
+                    npc_r, npc_g, npc_b, row = find_npc_values(entity_id)
+                    sy = h*row
+                    # TODO: apply r,g,b to the npc's 3 colors
                 
                 g.drawImage(x-w//2, y-h//2, s, sx, sy, w, h)
 

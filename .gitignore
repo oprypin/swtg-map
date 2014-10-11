@@ -2,6 +2,7 @@
 !.gitignore
 
 !swtg_mapper.py
+!mersenne.py
 !qt
 !qt/*.py
 !invisible.png
