@@ -1,10 +1,9 @@
 *
 !.gitignore
 
-!swtg_mapper.py
-!mersenne.py
+!*.py
 !qt
 !qt/*.py
-!invisible.png
+!*.png
 !README.md
 !LICENSE
