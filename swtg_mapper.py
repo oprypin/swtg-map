@@ -22,6 +22,7 @@ import os.path
 import random
 import struct
 import xml.etree.ElementTree as xml
+import mersenne
 
 
 import qt
