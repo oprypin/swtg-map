@@ -173,7 +173,7 @@ html = '''<?xml version="1.0" encoding="ascii"?>
     <meta http-equiv="Content-Type" content="text/html;charset=ascii"/>
     <title>{title}</title>
     <link rel="stylesheet" href="style.css" type="text/css"/>
-    <script type="text/javascript" src="//code.jquery.com/jquery-1.11.1.min.js"></script>
+    <script type="text/javascript" src="http://code.jquery.com/jquery-1.11.1.min.js"></script>
     <script type="text/javascript" src="script.js"></script>
 </head>
 <body>
@@ -326,7 +326,10 @@ for map in maps:
     mx = max(x for x, y in grid)+dx+1
     my = max(y for x, y in grid)+dy+1
     
-    edisplay.set('style', '''width: {}px; height: {}px; background-image: url('{}.png')'''.format(rw*mx, rh*my, map_name))
+    edisplay.set('style',
+        '''width: {}px; height: {}px; background-color: {}; background-image: url('{}.png')'''
+        .format(rw*mx, rh*my, backcolor.name(), map_name)
+    )
     e.set('style', '''left: {}px; top: {}px'''.format(rw*dx, rh*dy))
     
     full_img = QImage(rw*mx, rh*my, QImage.Format_ARGB32)
