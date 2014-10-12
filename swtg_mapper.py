@@ -259,6 +259,9 @@ for map in maps:
                                 s.setPixel(px, py, colors[s.pixel(px, py)])
                             except KeyError:
                                 pass
+                elif 'Phase Block' in sprite.get('name'):
+                    if root.find('./script/onfullyloaded/action[@text="run self initoff"]') is not None:
+                        sx += s.width()//2
                 ent_p.drawImage(x-w//2, y-h//2, s, sx, sy, w, h)
             
 
