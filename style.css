@@ -10,12 +10,20 @@ body {
     user-select: none;
 }
 
-div {
+#display, #offset, .region, .room, .entity {
     position: absolute;
+    -webkit-box-sizing: border-box;
+    -moz-box-sizing: border-box;
+    box-sizing: border-box;
 }
 .region {
+    z-index: 10;
     border: 1px dashed lime;
 }
+.room {
+    z-index: 20;
+}
 .entity {
+    z-index: 30;
     border: 1px dashed red;
 }

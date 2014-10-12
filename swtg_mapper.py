@@ -24,6 +24,7 @@ import os.path
 import random
 import struct
 import shutil
+import re
 import xml.etree.ElementTree as xml
 from xml.dom import minidom
 
@@ -83,6 +84,8 @@ def pretty_xml(element, **kwargs):
     s = xml.tostring(element)
     dom = minidom.parseString(s)
     return dom.toprettyxml(**kwargs)
+def expand_html(s):
+    return re.sub(r'<(div|a)(.*?)/>', r'<\1\2></\1>', s)
 
 def content(*fn):
     return os.path.join('Content Dump', *fn)
@@ -94,7 +97,7 @@ with open(content('SWG_Super Win the Game.vdd'), 'rb') as campaign_f:
 #with open(output('SWG_Super Win the Game.vdd.xml'), 'w') as xml_f:
     #xml_f.write(pretty_xml(root, indent='  '))
 
-campaign = root.find('campaign')
+campaign = root.find('./campaign')
 
 
 pal_img = QImage(content('NPC_Palettes.bmp'))
@@ -148,7 +151,7 @@ def palette(el):
                 self.collision[x, y] = unpack(f)
     return self
 
-all_palettes = {el.get('name'): palette(el) for el in campaign.find('palettes')}
+all_palettes = {el.get('name'): palette(el) for el in campaign.find('./palettes')}
 
 
 imgs = dict()
@@ -161,16 +164,15 @@ def get_img(fn):
     return imgs[fn]
 
 
-maps = campaign.find('maps')
+maps = campaign.find('./maps')
 
 invis = QImage('invisible.png')
 
 
-html = '''<?xml version="1.0" encoding="ascii"?>
-<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml">
+html = '''<!DOCTYPE html>
+<html>
 <head>
-    <meta http-equiv="Content-Type" content="text/html;charset=ascii"/>
+    <meta charset="ascii"/>
     <title>{title}</title>
     <link rel="stylesheet" href="style.css" type="text/css"/>
     <script type="text/javascript" src="http://code.jquery.com/jquery-1.11.1.min.js"></script>
@@ -190,6 +192,13 @@ except Exception:
 rw, rh = 256, 224
 tw, th = 8, 8
 rtw, rth = 16*2, 14*2
+
+def rename(s):
+    return s.replace(' ', '-').lower()
+
+def coord_id(x, y):
+    return str(x).replace('-', 'n')+'-'+str(y).replace('-', 'n')
+
 
 for map in maps:
     edisplay = xml.Element('div', {'id': 'display'})
@@ -214,6 +223,12 @@ for map in maps:
         sys.stdout.flush()
         coord_x, coord_y = unpack(map_f, 'i', 2)
         
+        eroom = xml.SubElement(e, 'div', {'class': 'room'})
+        eroom.set('id', 'room-'+coord_id(coord_x, coord_y))
+        eroom.set('style', '''left: {}px; top: {}px; width: {}px; height: {}px'''.format(
+            coord_x*rw, coord_y*rh, rw, rh
+        ))
+        
         ent_img = QImage(rw, rh, QImage.Format_ARGB32)
         ent_img.fill(qt.transparent)
         ent_p = QPainter(ent_img)
@@ -237,7 +252,7 @@ for map in maps:
                 w, h = int(size.get('x')), int(size.get('y'))
             else:
                 w = h = 0
-            sprite = root.find('sprite')
+            sprite = root.find('./sprite')
             if sprite is not None and sprite.get('sheet'):
                 s = get_img(sprite.get('sheet'))
                 sx, sy = 0, 0
@@ -262,21 +277,23 @@ for map in maps:
                 ent_p.drawImage(x-w//2, y-h//2, s, sx, sy, w, h)
             
 
-            esprite = xml.SubElement(e, 'div', {'class': 'entity'})
-            sprite_name = root.find('name')
+            eentity = xml.SubElement(eroom, 'a', {'class': 'entity'})
+            eentity.set('data-id', entity_id_s)
+            sprite_name = root.find('./name')
             if sprite_name is not None:
                 sprite_name = sprite_name.get('name')
             if sprite_name:
-                sprite_id = '{}-{}-{}'.format(
-                    str(coord_x).replace('-', 'n'),
-                    str(coord_y).replace('-', 'n'),
-                    root.find('name').get('name'),
-                )
-                esprite.set('id', sprite_id)
-            esprite.set('style', '''left: {}px; top: {}px; width: {}px; height: {}px'''.format(
-                coord_x*rw+x-w//2, coord_y*rh+y-h//2, w-2, h-2
+                eentity.set('id', 'ent-'+coord_id(coord_x, coord_y)+'-'+sprite_name)
+            eentity.set('style', '''left: {}px; top: {}px; width: {}px; height: {}px'''.format(
+                x-w//2, y-h//2, w, h
             ))
-
+            
+            for tele in root.findall('./teleport[@mapx]'):
+                filename = rename(tele.get('map'))+'.html' if tele.get('map')!=map_name else ''
+                eentity.set('href', '{}#ent-{}-{}'.format(
+                    filename, coord_id(tele.get('mapx'), tele.get('mapy')), tele.get('entity')
+                ))
+            
             map_f.read(16)
         
         ent_p.end()
@@ -319,7 +336,7 @@ for map in maps:
                 room_p.drawImage(x*tw, y*th, invis)
         
         room_p.drawImage(0, 0, ent_img)
-        room_p.drawText(2, 14, '{},{}'.format(coord_x, coord_y))
+        #room_p.drawText(2, 14, '{},{}'.format(coord_x, coord_y))
         room_p.end()
         
         for edge_index in range(4):
@@ -339,6 +356,7 @@ for map in maps:
                 to_map = map_f.read(unpack(map_f, 'i'))
             if code2&0b100:
                 to_entity = map_f.read(unpack(map_f, 'i'))
+            to_map = rename(map_name)
         
         grid[coord_x, coord_y] = room_img
     
@@ -351,7 +369,7 @@ for map in maps:
     
     edisplay.set('style',
         '''width: {}px; height: {}px; background-color: {}; background-image: url('{}.png')'''
-        .format(rw*mx, rh*my, backcolor.name(), map_name)
+        .format(rw*mx, rh*my, backcolor.name(), rename(map_name))
     )
     e.set('style', '''left: {}px; top: {}px'''.format(rw*dx, rh*dy))
     
@@ -376,13 +394,13 @@ for map in maps:
             color = QColor(cr, cb, cg, ca)
             full_p.fillRect(QRect((x+dx)*rw, (y+dy)*rh, w*rw, h*rh), color)
         eregion = xml.SubElement(e, 'div', {'class': 'region'})
-        eregion.set('style', '''left: {}px; top: {}px; width: {}px; height: {}px'''.format(x*rw+1, y*rh+1, w*rw-4, h*rh-4))
+        eregion.set('style', '''left: {}px; top: {}px; width: {}px; height: {}px'''.format(x*rw+1, y*rh+1, w*rw-2, h*rh-2))
         
         map_f.read(unpack(map_f, 'i'))
     
     for x, y in remaining_rooms:
         eregion = xml.SubElement(e, 'div', {'class': 'region'})
-        eregion.set('style', '''left: {}px; top: {}px; width: {}px; height: {}px'''.format(x*rw+1, y*rh+1, rw-4, rh-4))
+        eregion.set('style', '''left: {}px; top: {}px; width: {}px; height: {}px'''.format(x*rw+1, y*rh+1, rw-2, rh-2))
 
     
     for (x, y), v in grid.items():
@@ -390,9 +408,9 @@ for map in maps:
     
     full_p.end()
     
-    full_img.save(output('{}.png'.format(map_name)))
+    full_img.save(output('{}.png'.format(rename(map_name))))
     
-    body = pretty_xml(edisplay, indent='    ', encoding='ascii').decode('ascii').split('\n', 1)[1].strip().replace('/>', '></div>')
+    body = expand_html(pretty_xml(edisplay, indent='    ', encoding='ascii').decode('ascii').split('\n', 1)[1].strip())
     result = html.format(title=map_name, body=body)
-    with open(output('{}.html'.format(map_name)), 'w') as html_f:
+    with open(output('{}.html'.format(rename(map_name))), 'w') as html_f:
         html_f.write(result)
