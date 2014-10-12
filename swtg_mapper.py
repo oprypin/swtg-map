@@ -91,8 +91,8 @@ def output(*fn):
 
 with open(content('SWG_Super Win the Game.vdd'), 'rb') as campaign_f:
     root = parse_ndd_xml(campaign_f)
-#with open(output('SWG_Super Win the Game.vdd.xml'), 'w') as f:
-    #f.write(pretty_xml(root, indent='  '))
+#with open(output('SWG_Super Win the Game.vdd.xml'), 'w') as xml_f:
+    #xml_f.write(pretty_xml(root, indent='  '))
 
 campaign = root.find('campaign')
 
@@ -227,7 +227,7 @@ for map in maps:
             entity_fn = 'SWG_EntInst_{}.ndd'.format(entity_id_s)
             with open(content(entity_fn), 'rb') as entity_f:
                 root = parse_ndd_xml(entity_f)
-            #with open(output(os.path.basename(fn)+'.xml'), 'w') as xml_f:
+            #with open(output(os.path.basename(entity_fn)+'.xml'), 'w') as xml_f:
                 #xml_f.write(pretty_xml(root, indent='  '))
             
             sprite = root.find('sprite')
@@ -241,6 +241,10 @@ for map in maps:
                 if 'Ghost Block' in sprite.get('name'):
                     sy = h*1 # Make ghost blocks fully visible
                 elif 'NPC' in sprite.get('name'):
+                    npc = root.find('./npc[@face]')
+                    if npc is not None:
+                        if npc.get('face')=='right':
+                            sx += 128
                     colors, row = find_npc_values(entity_id)
                     rgb = [QColor(c).rgb() for c in [qt.red, qt.green, qt.blue]]
                     colors = dict(zip(rgb, colors))
