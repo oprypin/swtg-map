@@ -262,13 +262,11 @@ for map in maps:
                 elif 'Phase Block' in sprite.get('name'):
                     if root.find('./script/onfullyloaded/action[@text="run self initoff"]') is not None:
                         sx += s.width()//2
-                else:
-                    vector = root.find('./space/velocity/vector')
-                    mod = root.find('./anim/sequence/mod')
-                    if vector is not None and mod is not None:
-                        if int(vector.get('x')) * int(mod.get('nx')) >= 0: # if signs match
-                            oy = int(root.find('./anim/sequence/mod').get('oy'))
-                            sy += oy
+                vector = root.find('./space/velocity/vector')
+                mod = root.find('./anim/sequence[@startplaying="true"]/mod')
+                if vector is not None and mod is not None:
+                    if int(vector.get('x')) * int(mod.get('nx')) >= 0: # if signs match
+                        sy = int(mod.get('oy'))
                 ent_p.drawImage(x-w//2, y-h//2, s, sx, sy, w, h)
             
 
