@@ -23,15 +23,18 @@ import itertools
 import os.path
 import random
 import struct
+import shutil
 import xml.etree.ElementTree as xml
-import mersenne
-
+from xml.dom import minidom
 
 import qt
 qt.init()
 from qt.core import *
 from qt.gui import *
 from qt.widgets import QApplication
+
+import mersenne
+
 
 app = QApplication([])
 
@@ -65,37 +68,37 @@ def parse_ndd_xml(f, parent=None):
     attr_count = unpack(f, 'i')
     tag_count = unpack(f, 'i')
     
-    for _ in range(attr_count):
+    for attr_i in range(attr_count):
         attr = f.read(unpack(f, 'i')).decode('utf-8')
         value = f.read(unpack(f, 'i')).decode('utf-8')
         element.set(attr, value)
     
-    for _ in range(tag_count):
+    for tag_i in range(tag_count):
         parse_ndd_xml(f, element)
     
     return element
 
 
-def pretty_xml(element):
-    from xml.dom import minidom
+def pretty_xml(element, **kwargs):
     s = xml.tostring(element)
     dom = minidom.parseString(s)
-    return dom.toprettyxml(indent='  ')
+    return dom.toprettyxml(**kwargs)
 
 def content(*fn):
     return os.path.join('Content Dump', *fn)
 def output(*fn):
     return os.path.join('output', *fn)
 
-with open(content('SWG_Super Win the Game.vdd'), 'rb') as f:
-    root = parse_ndd_xml(f)
+with open(content('SWG_Super Win the Game.vdd'), 'rb') as campaign_f:
+    root = parse_ndd_xml(campaign_f)
 #with open(output('SWG_Super Win the Game.vdd.xml'), 'w') as f:
-    #f.write(pretty_xml(root))
+    #f.write(pretty_xml(root, indent='  '))
+
+campaign = root.find('campaign')
 
 
-
-img = QImage(content('NPC_Palettes.bmp'))
-npc_colors = [(img.pixel(0, y), img.pixel(1, y), img.pixel(2, y)) for y in range(img.height())]
+pal_img = QImage(content('NPC_Palettes.bmp'))
+npc_colors = [(pal_img.pixel(0, y), pal_img.pixel(1, y), pal_img.pixel(2, y)) for y in range(pal_img.height())]
 
 def random_int(top):
     n = mersenne.extract_number()
@@ -110,9 +113,6 @@ def find_npc_values(entity_id):
 
 
 
-campaign = root.find('campaign')
-
-
 class Palette(object):
     pass
 def palette(el):
@@ -122,7 +122,6 @@ def palette(el):
     img.setMask(mask)
     
     self.img = img.toImage()
-    #self.img.save(output('Palette_{}.png'.format(el.get('name'))))
     
     self.ani = []
     with open(content(el.get('animation')), 'rb') as f:
@@ -151,6 +150,7 @@ def palette(el):
 
 all_palettes = {el.get('name'): palette(el) for el in campaign.find('palettes')}
 
+
 imgs = dict()
 def get_img(fn):
     if fn not in imgs:
@@ -165,40 +165,70 @@ maps = campaign.find('maps')
 
 invis = QImage('invisible.png')
 
+
+html = '''<?xml version="1.0" encoding="ascii"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+    <meta http-equiv="Content-Type" content="text/html;charset=ascii"/>
+    <title>{title}</title>
+    <link rel="stylesheet" href="style.css" type="text/css"/>
+    <script type="text/javascript" src="//code.jquery.com/jquery-1.11.1.min.js"></script>
+    <script type="text/javascript" src="script.js"></script>
+</head>
+<body>
+{body}
+</body>
+</html>'''
+
+try:
+    for fn in ['script.js', 'style.css']:
+        shutil.copyfile(fn, output(fn))
+except Exception:
+    pass
+
+rw, rh = 256, 224
+tw, th = 8, 8
+rtw, rth = 16*2, 14*2
+
 for map in maps:
+    edisplay = xml.Element('div', id='display')
+    e = xml.SubElement(edisplay, 'div', id='offset')
+    
     print()
-    print(map.get('name'))
+    map_name = map.get('name')
+    print(map_name)
     palettes = [all_palettes[palette.get('name')] for palette in map.iter('palette')]
 
     backcolor = QColor(map.get('backcolor'))
 
-    f = open(content(map.get('src')), 'rb')
-    f.read(18)
+    map_f = open(content(map.get('src')), 'rb')
+    map_f.read(18)
     
     grid = dict()
     
-    room_count = unpack(f, 'i')
+    room_count = unpack(map_f, 'i')
 
     for room_index in range(room_count):
         print(room_index, end='\r')
         sys.stdout.flush()
-        coord_x, coord_y = unpack(f, 'i', 2)
+        coord_x, coord_y = unpack(map_f, 'i', 2)
         
-        ent_img = QImage(256, 224, QImage.Format_ARGB32)
+        ent_img = QImage(rw, rh, QImage.Format_ARGB32)
         ent_img.fill(qt.transparent)
-        g = QPainter(ent_img)
+        ent_p = QPainter(ent_img)
 
-        entity_count = unpack(f, 'i')
-        for entity_index in range(entity_count):
-            for _ in range(3):
-                f.read(unpack(f, 'i'))
-            entity_id = unpack(f, 'i')
+        entity_count = unpack(map_f, 'i')
+        for entity_i in range(entity_count):
+            for xml_i in range(3):
+                map_f.read(unpack(map_f, 'i'))
+            entity_id = unpack(map_f, 'i')
             entity_id_s = format(entity_id, '08x')
-            fn = 'SWG_EntInst_{}.ndd'.format(entity_id_s)
-            with open(content(fn), 'rb') as f2:
-                root = parse_ndd_xml(f2)
-            #with open(output(os.path.basename(fn)+'.xml'), 'w') as f2:
-                #f2.write(pretty_xml(root))
+            entity_fn = 'SWG_EntInst_{}.ndd'.format(entity_id_s)
+            with open(content(entity_fn), 'rb') as entity_f:
+                root = parse_ndd_xml(entity_f)
+            #with open(output(os.path.basename(fn)+'.xml'), 'w') as xml_f:
+                #xml_f.write(pretty_xml(root, indent='  '))
             
             sprite = root.find('sprite')
             if sprite is not None and sprite.get('sheet'):
@@ -222,17 +252,17 @@ for map in maps:
                                 s.setPixel(px, py, colors[s.pixel(px, py)])
                             except KeyError:
                                 pass
-                g.drawImage(x-w//2, y-h//2, s, sx, sy, w, h)
+                ent_p.drawImage(x-w//2, y-h//2, s, sx, sy, w, h)
 
-            f.read(16)
+            map_f.read(16)
         
-        g.end()
+        ent_p.end()
         
-        img = QImage(256, 224, QImage.Format_ARGB32)
-        img.fill(qt.transparent)
-        g = QPainter(img)
-        g.setPen(QPen(qt.green, 1))
-        for x, y in itertools.product(range(16*2), range(14*2)):
+        room_img = QImage(rw, rh, QImage.Format_ARGB32)
+        room_img.fill(qt.transparent)
+        room_p = QPainter(room_img)
+        room_p.setPen(QPen(qt.green, 1))
+        for x, y in itertools.product(range(rtw), range(rth)):
             bg_collision = None
             for fg in [False, True]:
                 try:
@@ -240,12 +270,12 @@ for map in maps:
                         bg_collision = pal.collision[px, py] # look at bg's collision
                 except AttributeError:
                     pass
-                px, py, is_ani, pal = unpack(f, 4)
+                px, py, is_ani, pal = unpack(map_f, 'b', 4)
                 if is_ani==2: # invisible block
                     bg_collision = invis
-                    g.drawImage(x*8, y*8, invis)
+                    room_p.drawImage(x*tw, y*th, invis)
                     continue
-                if px==py==0xff:
+                if px==py==-1:
                     continue
                 pal = palettes[pal]
                 if is_ani==1:
@@ -255,27 +285,23 @@ for map in maps:
                     bg_collision = pal.collision[px, py]
                 
                 # 0 nothing  1 full  2 spike  3 top  4 water  5 ice  6 toxic  7 ???
-                px8, py8 = px*8, py*8
+                pxt, pyt = px*tw, py*th
                 if fg and bg_collision not in [1, 5, invis]:
-                    s = sum(qAlpha(pal.img.pixel(px8+sx, py8+sy)) for sx in range(8) for sy in range(8))
-                    s /= (8*8*256.0)
-                    g.setOpacity(min(1.4-s, 1))
-                g.drawImage(x*8, y*8, pal.img, px8, py8, 8, 8)
-                g.setOpacity(1)
+                    s = sum(qAlpha(pal.img.pixel(pxt+sx, pyt+sy)) for sx in range(tw) for sy in range(th))
+                    s /= (tw*th*256)
+                    room_p.setOpacity(min(1.4-s, 1))
+                room_p.drawImage(x*tw, y*th, pal.img, pxt, pyt, tw, th)
+                room_p.setOpacity(1)
             if bg_collision==invis:
-                g.drawImage(x*8, y*8, invis)
+                room_p.drawImage(x*tw, y*th, invis)
         
-        g.drawImage(0, 0, ent_img)
-        g.drawText(2, 14, '{},{}'.format(coord_x, coord_y))
-        g.end()
-        #img.save(output('Room_{}_{}.png'.format(map.get('name'), room_index)))
-        grid[coord_x, coord_y] = img
-            
+        room_p.drawImage(0, 0, ent_img)
+        #room_p.drawText(2, 14, '{},{}'.format(coord_x, coord_y))
+        room_p.end()
         
         for edge_index in range(4):
-            code1, code2 = unpack(f, 2)
-            # print('{:2} {:02x} {:02x}  {:x}'.format(room_index, code1, code2, index))
-            assert code1 in [0, 1] # make sure, since i don't think it can be anything else
+            code1, code2 = unpack(map_f, 2)
+            assert code1 in [0, 1]
             scroll = bool(code1)
             assert code2%0b1000 in [
                 0, # no teleport on leaving
@@ -283,51 +309,64 @@ for map in maps:
                 0b11, # teleport to map->location
                 0b111, # teleport to map->location->entity
             ]
-            if code2 & 0b001:
-                to_x, to_y = unpack(f, 'i', 2)
-            if code2 & 0b010:
-                to_map = f.read(unpack(f, 'i'))
-            if code2 & 0b100:
-                to_entity = f.read(unpack(f, 'i'))
-                
+            to_map = map_name
+            if code2&0b001:
+                to_x, to_y = unpack(map_f, 'i', 2)
+            if code2&0b010:
+                to_map = map_f.read(unpack(map_f, 'i'))
+            if code2&0b100:
+                to_entity = map_f.read(unpack(map_f, 'i'))
         
+        grid[coord_x, coord_y] = room_img
     
+
     dx = -min(x for x, y in grid)
     dy = -min(y for x, y in grid)
     
     mx = max(x for x, y in grid)+dx+1
     my = max(y for x, y in grid)+dy+1
     
-    img = QImage(256*mx, 224*my, QImage.Format_ARGB32)
-    img.fill(qt.transparent)
-    g = QPainter(img)
+    edisplay.set('style', '''width: {}px; height: {}px; background-image: url('{}.png')'''.format(rw*mx, rh*my, map_name))
+    e.set('style', '''left: {}px; top: {}px'''.format(rw*dx, rh*dy))
+    
+    full_img = QImage(rw*mx, rh*my, QImage.Format_ARGB32)
+    full_img.fill(qt.transparent)
+    full_p = QPainter(full_img)
     
     for x, y in grid:
-        g.fillRect((x+dx)*256, (y+dy)*224, 256, 224, backcolor)
+        full_p.fillRect((x+dx)*rw, (y+dy)*rh, rw, rh, backcolor)
 
-    rects = []
+    remaining_rooms = set(grid)
 
-    modifier_count = unpack(f, 'i')
-    for _ in range(modifier_count):
-        x, y, w, h = unpack(f, 'i', 4)
-        colored = unpack(f)
-        cg, cb, cr, ca = unpack(f, 4)
-        r = QRect((x+dx)*256, (y+dy)*224, w*256, h*224)
-        rects.append(r)
+    modifier_count = unpack(map_f, 'i')
+    for modifier_i in range(modifier_count):
+        x, y, w, h = unpack(map_f, 'i', 4)
+        colored = unpack(map_f)
+        cg, cb, cr, ca = unpack(map_f, 4)
+        for i in range(x, x+w):
+            for j in range(y, y+h):
+                remaining_rooms.remove((i, j))
         if colored:
             color = QColor(cr, cb, cg, ca)
-            g.fillRect(r, color)
+            full_p.fillRect(QRect((x+dx)*rw, (y+dy)*rh, w*rw, h*rh), color)
+        eregion = xml.SubElement(e, 'div', {'class': 'region'})
+        eregion.set('style', '''left: {}px; top: {}px; width: {}px; height: {}px'''.format(x*rw+1, y*rh+1, w*rw-4, h*rh-4))
         
-        f.read(unpack(f, 'i'))
+        map_f.read(unpack(map_f, 'i'))
+    
+    for x, y in remaining_rooms:
+        eregion = xml.SubElement(e, 'div', {'class': 'region'})
+        eregion.set('style', '''left: {}px; top: {}px; width: {}px; height: {}px'''.format(x*rw+1, y*rh+1, rw-4, rh-4))
+
     
     for (x, y), v in grid.items():
-        g.drawImage((x+dx)*256, (y+dy)*224, v)
+        full_p.drawImage((x+dx)*rw, (y+dy)*rh, v)
     
-    for r in rects:
-        g.setBrush(qt.transparent)
-        g.setPen(QPen(qt.green, 1, qt.DashLine))
-        g.drawRect(r.adjusted(1, 1, -2, -2))
+    full_p.end()
     
-    g.end()
+    full_img.save(output('{}.png'.format(map_name)))
     
-    img.save(output('Zone_{}.png'.format(map.get('name'))))
+    body = pretty_xml(edisplay, indent='    ', encoding='ascii').decode('ascii').split('\n', 1)[1].strip().replace('/>', '></div>')
+    result = html.format(title=map_name, body=body)
+    with open(output('{}.html'.format(map_name)), 'w') as html_f:
+        html_f.write(result)

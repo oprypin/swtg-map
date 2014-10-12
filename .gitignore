@@ -4,6 +4,8 @@
 !*.py
 !qt
 !qt/*.py
+!*.js
+!*.css
 !*.png
 !README.md
 !LICENSE
