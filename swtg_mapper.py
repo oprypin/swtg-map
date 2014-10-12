@@ -272,19 +272,24 @@ for map in maps:
         grid[coord_x, coord_y] = img
             
         
-        # read what i used to think was just "01 00 01 00 01 00 01 00"
-        # it's actually a series of 4 reads, and some can have internal data.
-        for _ in range(4):
+        for edge_index in range(4):
             code1, code2 = unpack(f, 2)
             # print('{:2} {:02x} {:02x}  {:x}'.format(room_index, code1, code2, index))
             assert code1 in [0, 1] # make sure, since i don't think it can be anything else
-            assert code2 in [0, 0b1, 0b11, 0b111, 0b110111]
-            if code2 & 0b0001: # skip 2 int32s
-                f.read(8)
-            if code2 & 0b0010: # skip a length-prefixed string
-                f.read(unpack(f, 'i'))
-            if code2 & 0b0100: # skip a length-prefixed string
-                f.read(unpack(f, 'i'))
+            scroll = bool(code1)
+            assert code2%0b1000 in [
+                0, # no teleport on leaving
+                0b1, # teleport to location
+                0b11, # teleport to map->location
+                0b111, # teleport to map->location->entity
+            ]
+            if code2 & 0b001:
+                to_x, to_y = unpack(f, 'i', 2)
+            if code2 & 0b010:
+                to_map = f.read(unpack(f, 'i'))
+            if code2 & 0b100:
+                to_entity = f.read(unpack(f, 'i'))
+                
         
     
     dx = -min(x for x, y in grid)
