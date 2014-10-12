@@ -16,3 +16,6 @@ div {
 .region {
     border: 1px dashed lime;
 }
+.entity {
+    border: 1px dashed red;
+}

@@ -192,8 +192,8 @@ tw, th = 8, 8
 rtw, rth = 16*2, 14*2
 
 for map in maps:
-    edisplay = xml.Element('div', id='display')
-    e = xml.SubElement(edisplay, 'div', id='offset')
+    edisplay = xml.Element('div', {'id': 'display'})
+    e = xml.SubElement(edisplay, 'div', {'id': 'offset'})
     
     print()
     map_name = map.get('name')
@@ -230,13 +230,16 @@ for map in maps:
             #with open(output(os.path.basename(entity_fn)+'.xml'), 'w') as xml_f:
                 #xml_f.write(pretty_xml(root, indent='  '))
             
+            pos = root.find('./space/position/vector[@x]')
+            x, y = int(pos.get('x')), int(pos.get('y'))
+            size = root.findall('./space/scale/vector[@x]')[-1]
+            if size is not None:
+                w, h = int(size.get('x')), int(size.get('y'))
+            else:
+                w = h = 0
             sprite = root.find('sprite')
             if sprite is not None and sprite.get('sheet'):
                 s = get_img(sprite.get('sheet'))
-                pos = root.find('./space/position/vector[@x]')
-                x, y = int(pos.get('x')), int(pos.get('y'))
-                size = root.findall('./space/scale/vector[@x]')[-1]
-                w, h = int(size.get('x')), int(size.get('y'))
                 sx, sy = 0, 0
                 if 'Ghost Block' in sprite.get('name'):
                     sy = h*1 # Make ghost blocks fully visible
@@ -257,6 +260,22 @@ for map in maps:
                             except KeyError:
                                 pass
                 ent_p.drawImage(x-w//2, y-h//2, s, sx, sy, w, h)
+            
+
+            esprite = xml.SubElement(e, 'div', {'class': 'entity'})
+            sprite_name = root.find('name')
+            if sprite_name is not None:
+                sprite_name = sprite_name.get('name')
+            if sprite_name:
+                sprite_id = '{}-{}-{}'.format(
+                    str(coord_x).replace('-', 'n'),
+                    str(coord_y).replace('-', 'n'),
+                    root.find('name').get('name'),
+                )
+                esprite.set('id', sprite_id)
+            esprite.set('style', '''left: {}px; top: {}px; width: {}px; height: {}px'''.format(
+                coord_x*rw+x-w//2, coord_y*rh+y-h//2, w-2, h-2
+            ))
 
             map_f.read(16)
         
@@ -300,7 +319,7 @@ for map in maps:
                 room_p.drawImage(x*tw, y*th, invis)
         
         room_p.drawImage(0, 0, ent_img)
-        #room_p.drawText(2, 14, '{},{}'.format(coord_x, coord_y))
+        room_p.drawText(2, 14, '{},{}'.format(coord_x, coord_y))
         room_p.end()
         
         for edge_index in range(4):
