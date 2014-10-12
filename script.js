@@ -19,10 +19,16 @@ $(document).on({
 })
 
 
-function highlight(el) {
+function highlight(el, callback) {
     var $el = $(el)
-    $el.css('background-color', 'cyan').fadeTo('slow', 0).fadeTo('slow', 1, function() {
-        $el.css('background', 'none')
+    $el.fadeTo('normal', 0, function() {
+        $el.css('background-color', 'lime').fadeTo('slow', 1).fadeTo('slow', 0, function() {
+            $el.css('background', 'transparent')
+            $el.fadeTo('normal', 1)
+            if (typeof(callback)!=='undefined') {
+                callback()
+            }
+        })
     })
 }
 
@@ -61,9 +67,28 @@ function scroll_to_hash(duration) {
     return false
 }
 
+function scroll_and_hash(el, duration) {
+    if (typeof(duration)==='undefined') {
+        duration = 0
+    }
+    var top = $(window).scrollTop()
+    var left = $(window).scrollLeft()
+    scroll = false
+    window.location.hash = $(el).attr('id')
+    $(window).scrollTop(top)
+    $(window).scrollLeft(left)
+    setTimeout(function() {
+        $(window).scrollTop(top)
+        $(window).scrollLeft(left)
+        scroll = true
+        scroll_to(el, duration)
+        highlight(el)
+    }, 1)
+}
+
 $(function() {
-    $('.room').dblclick(function() {
-        window.location.hash = '#'+$(this).attr('id')
+    $('.entity').dblclick(function() {
+        scroll_and_hash(this, 400)
     })
     $('.entity[href^="#"]').click(function(e) {
         if (e.preventDefault) {
@@ -72,13 +97,7 @@ $(function() {
             e.stop()
         }
         var id = $(this).attr('href')
-        scroll_to(id, 100)
-        highlight(id)
-        scroll = false
-        window.location.hash = id
-        setTimeout(function() {
-            scroll = true
-        }, 1)
+        scroll_and_hash($(id), 600)
     })
 
 

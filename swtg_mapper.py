@@ -20,6 +20,7 @@ from __future__ import division, print_function
 
 import sys
 import itertools
+import collections
 import os.path
 import random
 import struct
@@ -193,11 +194,14 @@ rw, rh = 256, 224
 tw, th = 8, 8
 rtw, rth = 16*2, 14*2
 
-def rename(s):
-    return s.replace(' ', '-').lower()
+def slugify(s, sep='-'):
+    s = s.casefold()
+    s = re.sub(r'[^\w\s-]+', sep, s, flags=re.UNICODE)
+    s = re.sub(r'[{}\s]+'.format(re.escape(sep)), sep, s)
+    return s.strip(sep)
 
 def coord_id(x, y):
-    return str(x).replace('-', 'n')+'-'+str(y).replace('-', 'n')
+    return '-'.join(str(int(i)).replace('-', 'n') for i in (x, y))
 
 
 for map in maps:
@@ -232,6 +236,8 @@ for map in maps:
         ent_img = QImage(rw, rh, QImage.Format_ARGB32)
         ent_img.fill(qt.transparent)
         ent_p = QPainter(ent_img)
+
+        entity_sprite_names = collections.defaultdict(list)
 
         entity_count = unpack(map_f, 'i')
         for entity_i in range(entity_count):
@@ -285,26 +291,40 @@ for map in maps:
                 ent_p.drawImage(x-w//2, y-h//2, s, sx, sy, w, h)
             
 
-            eentity = xml.SubElement(eroom, 'a', {'class': 'entity'})
-            eentity.set('data-id', entity_id_s)
-            sprite_name = root.find('./name')
-            if sprite_name is not None:
-                sprite_name = sprite_name.get('name')
-            if sprite_name:
-                eentity.set('id', 'ent-'+coord_id(coord_x, coord_y)+'-'+sprite_name)
+            eentity = xml.SubElement(eroom, 'a', {'class': 'entity', 'name': entity_id_s})
+            entity_name = root.find('./name')
+            if entity_name is not None:
+                entity_name = entity_name.get('name')
+            if not entity_name and sprite is not None:
+                entity_name = sprite.get('name')
+                if entity_name:
+                    entity_name = entity_name[entity_name.index('SWG_')+4:]
+                    entity_sprite_names[entity_name].append(eentity)
+            if not entity_name:
+                entity_name = entity_id_s
+            if entity_name:
+                eentity.set('id', 'ent-{}-{}'.format(coord_id(coord_x, coord_y), slugify(entity_name)))
             eentity.set('style', '''left: {}px; top: {}px; width: {}px; height: {}px'''.format(
                 x-w//2, y-h//2, w, h
             ))
             
             for tele in root.findall('./teleport[@mapx]'):
-                filename = rename(tele.get('map'))+'.html' if tele.get('map')!=map_name else ''
-                eentity.set('href', '{}#ent-{}-{}'.format(
-                    filename, coord_id(tele.get('mapx'), tele.get('mapy')), tele.get('entity')
-                ))
+                filename = slugify(tele.get('map'))+'.html' if tele.get('map')!=map_name else ''
+                try:
+                    eentity.set('href', '{}#ent-{}-{}'.format(
+                        filename, coord_id(tele.get('mapx'), tele.get('mapy')), slugify(tele.get('entity'))
+                    ))
+                except (AttributeError, ValueError):
+                    print("Error in teleporter entity {}".format(entity_id_s))
             
             map_f.read(16)
         
         ent_p.end()
+        for group in entity_sprite_names.values():
+            if len(group)>1:
+                for i, eentity in enumerate(group, 1):
+                    eentity.set('id', '{}-{}'.format(eentity.get('id'), i))
+        
         
         room_img = QImage(rw, rh, QImage.Format_ARGB32)
         room_img.fill(qt.transparent)
@@ -364,7 +384,7 @@ for map in maps:
                 to_map = map_f.read(unpack(map_f, 'i'))
             if code2&0b100:
                 to_entity = map_f.read(unpack(map_f, 'i'))
-            to_map = rename(map_name)
+            to_map = slugify(map_name)
         
         grid[coord_x, coord_y] = room_img
     
@@ -377,7 +397,7 @@ for map in maps:
     
     edisplay.set('style',
         '''width: {}px; height: {}px; background-color: {}; background-image: url('{}.png')'''
-        .format(rw*mx, rh*my, backcolor.name(), rename(map_name))
+        .format(rw*mx, rh*my, backcolor.name(), slugify(map_name))
     )
     e.set('style', '''left: {}px; top: {}px'''.format(rw*dx, rh*dy))
     
@@ -416,9 +436,9 @@ for map in maps:
     
     full_p.end()
     
-    full_img.save(output('{}.png'.format(rename(map_name))))
+    full_img.save(output('{}.png'.format(slugify(map_name))))
     
     body = expand_html(pretty_xml(edisplay, indent='    ', encoding='ascii').decode('ascii').split('\n', 1)[1].strip())
     result = html.format(title=map_name, body=body)
-    with open(output('{}.html'.format(rename(map_name))), 'w') as html_f:
+    with open(output('{}.html'.format(slugify(map_name))), 'w') as html_f:
         html_f.write(result)
