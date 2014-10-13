@@ -109,7 +109,7 @@ $(function() {
     $('.entity').dblclick(function() {
         scroll_and_hash(this, 400)
     })
-    $('.entity[href^="#"]').click(function(e) {
+    $('a[href^="#"]').click(function(e) {
         if (e.preventDefault) {
             e.preventDefault()
         } else {

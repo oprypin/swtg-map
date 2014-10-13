@@ -182,12 +182,12 @@ html = '''<!DOCTYPE html>
 <body>
 
 <div id="header" class="header">
-    <span class="right">
+    <div class="right">
         <h2><a href="http://superwinthegame.com/">Super Win the Game</a></h2> (game and visuals created by <a href="http://minorkeygames.com/">Minor Key Games</a>)
-    </span>
-    <span class="left">
+    </div>
+    <div class="left">
         <h2>Map: {title}</h2> (made by <a href="http://steamcommunity.com/id/blaxpirit">BlaXpirit</a> with help of <a href="http://steamcommunity.com/id/morsk">Morsk</a>)
-    </span>
+    </div>
 </div>
 
 {body}
@@ -349,9 +349,9 @@ for map in maps:
                     entity_sprite_names[entity_name].append((x/rw+y/rh, eentity))
             if entity_name:
                 unimportant = False
-                if entity_name in ['gem', 'green-gem']:
+                if rename_entity(entity_name) in ['gem', 'green-gem']:
                     add_class('gem')
-                elif entity_name=='heart':
+                elif rename_entity(entity_name)=='heart':
                     add_class('heart')
             else:
                 entity_name = entity_id_s
