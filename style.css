@@ -10,11 +10,14 @@ body {
     user-select: none;
 }
 
-#display, #offset, .region, .room, .edge, .entity {
+#display, #offset, .region, .room, .edge, .entity, .highlight {
     position: absolute;
     -webkit-box-sizing: border-box;
     -moz-box-sizing: border-box;
     box-sizing: border-box;
+}
+#display {
+    overflow: hidden;
 }
 .region {
     z-index: 10;
@@ -25,7 +28,7 @@ body {
 }
 .edge {
     z-index: 30;
-    background-color: rgba(0, 0, 255, 0.3);
+    background-color: rgba(0, 0, 255, 0.5);
 }
 .edge.top {
     border-bottom: 1px dotted cyan;
@@ -45,10 +48,17 @@ body {
     border-color: rgba(255, 0, 0, 0.8);
 }
 .entity.gem, .entity.heart {
-    z-index: 41
+    z-index: 41;
     outline: yellow dashed 1px;
 }
 .entity.unimportant {
     z-index: 39;
     border-color: rgba(255, 0, 0, 0.4)
+}
+
+.highlight {
+    border: 2px solid white;
+    -webkit-border-radius: 50%; 
+    -moz-border-radius: 50%; 
+    border-radius: 50%;
 }

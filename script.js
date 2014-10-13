@@ -19,17 +19,31 @@ $(document).on({
 })
 
 
-function highlight(el, callback) {
-    var $el = $(el)
-    $el.fadeTo('normal', 0, function() {
-        $el.css('background-color', 'lime').fadeTo('slow', 1).fadeTo('slow', 0, function() {
-            $el.css('background', 'transparent')
-            $el.fadeTo('normal', 1)
-            if (typeof(callback)!=='undefined') {
-                callback()
-            }
-        })
+function highlight(el) {
+    $el = $(el)
+    var $hl = $('<div class="highlight"/>').appendTo($el)
+    var end_sz = ($el.width()+$el.height())/2
+    var start_sz = end_sz+500
+    var dims = function(sz) {
+        return {
+            top: $el.width()/2-sz/2,
+            left: $el.height()/2-sz/2,
+            width: sz,
+            height: sz
+        }
+    }
+    $hl.css(dims(end_sz+500))
+    $hl.animate(dims(end_sz), {
+        duration: 900,
+        queue: false,
+        complete: function() {
+            $hl.animate(dims(end_sz+100), {
+                duration: 200,
+                queue: false
+            })
+        }
     })
+    $hl.fadeTo(0, 0).fadeTo(300, 1).fadeTo(600, 0.5).fadeTo(200, 0)
 }
 
 
@@ -61,8 +75,9 @@ function scroll_to_hash(duration) {
         if ($el.length!=1) {
             return
         }
-        scroll_to($el, duration)
-        highlight($el)
+        scroll_to($el, duration, function() {
+            highlight($el)
+        })
     }, 1)
     return false
 }
@@ -81,8 +96,9 @@ function scroll_and_hash(el, duration) {
         $(window).scrollTop(top)
         $(window).scrollLeft(left)
         scroll = true
-        scroll_to(el, duration)
-        highlight(el)
+        scroll_to(el, duration, function() {
+            highlight(el)
+        })
     }, 1)
 }
 
