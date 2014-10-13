@@ -10,7 +10,7 @@ body {
     user-select: none;
 }
 
-#display, #offset, .region, .room, .entity {
+#display, #offset, .region, .room, .edge, .entity {
     position: absolute;
     -webkit-box-sizing: border-box;
     -moz-box-sizing: border-box;
@@ -23,7 +23,32 @@ body {
 .room {
     z-index: 20;
 }
-.entity {
+.edge {
     z-index: 30;
+    background-color: rgba(0, 0, 255, 0.3);
+}
+.edge.top {
+    border-bottom: 1px dotted cyan;
+}
+.edge.bottom {
+    border-top: 1px dotted cyan;
+}
+.edge.left {
+    border-right: 1px dotted cyan;
+}
+.edge.right {
+    border-left: 1px dotted cyan;
+}
+.entity {
+    z-index: 40;
     border: 1px dashed red;
+    border-color: rgba(255, 0, 0, 0.8);
+}
+.entity.gem, .entity.heart {
+    z-index: 41
+    outline: yellow dashed 1px;
+}
+.entity.unimportant {
+    z-index: 39;
+    border-color: rgba(255, 0, 0, 0.4)
 }

@@ -259,6 +259,8 @@ for map in maps:
 
         entity_count = unpack(map_f, 'i')
         for entity_i in range(entity_count):
+            unimportant = True
+            
             for xml_i in range(3):
                 map_f.read(unpack(map_f, 'i'))
             entity_id = unpack(map_f, 'i')
@@ -277,10 +279,14 @@ for map in maps:
             else:
                 w = h = 0
             sprite = root.find('./sprite')
+            if sprite is not None:
+                sprite_name = sprite.get('name')
+            else:
+                sprite_name = None
             if sprite is not None and sprite.get('sheet'):
+                unimportant = False
                 s = get_img(sprite.get('sheet'))
                 sx, sy = 0, 0
-                sprite_name = sprite.get('name')
                 if 'Ghost Block' in sprite_name:
                     sy = h*1 # Make ghost blocks fully visible
                 elif 'NPC' in sprite_name:
@@ -318,11 +324,11 @@ for map in maps:
                         sy = int(mod.get('oy'))
                 ent_p.drawImage(x-w//2, y-h//2, s, sx, sy, w, h)
                 ent_p.setOpacity(1)
-            else:
-                sprite_name = None
 
             eentity = xml.SubElement(eroom, 'a', {'class': 'entity', 'name': entity_id_s})
             entity_name = root.find('./name')
+            def add_class(s):
+                eentity.set('class', '{} {}'.format(eentity.get('class'), s))
             if entity_name is not None:
                 entity_name = entity_name.get('name')
             if not entity_name and sprite is not None:
@@ -330,15 +336,23 @@ for map in maps:
                 if entity_name:
                     entity_name = entity_name[entity_name.index('SWG_')+4:]
                     entity_sprite_names[entity_name].append((x/rw+y/rh, eentity))
-            if not entity_name:
+            if entity_name:
+                unimportant = False
+                if entity_name in ['gem', 'green-gem']:
+                    add_class('gem')
+                elif entity_name=='heart':
+                    add_class('heart')
+            else:
                 entity_name = entity_id_s
             if entity_name:
-                eentity.set('id', 'ent-{}-{}'.format(coord_id(coord_x, coord_y), rename_entity(entity_name)))
+                entity_name = rename_entity(entity_name)
+                eentity.set('id', 'ent-{}-{}'.format(coord_id(coord_x, coord_y), entity_name))
             eentity.set('style', '''left: {}px; top: {}px; width: {}px; height: {}px'''.format(
                 x-w//2, y-h//2, w, h
             ))
             
             for tele in root.findall('./teleport[@mapx]'):
+                unimportant = False
                 filename = rename_map(tele.get('map'))+'.html' if tele.get('map')!=map_name else ''
                 try:
                     eentity.set('href', '{}#ent-{}-{}'.format(
@@ -346,6 +360,9 @@ for map in maps:
                     ))
                 except (AttributeError, ValueError):
                     print("Error in teleporter entity {}".format(entity_id_s))
+
+            if unimportant:
+                add_class('unimportant')
             
             map_f.read(16)
         
@@ -397,7 +414,7 @@ for map in maps:
         #room_p.drawText(2, 14, '{},{}'.format(coord_x, coord_y))
         room_p.end()
         
-        for edge_index in range(4):
+        for edge in ['top', 'bottom', 'left', 'right']:
             code1, code2 = unpack(map_f, 2)
             assert code1 in [0, 1]
             scroll = bool(code1)
@@ -407,16 +424,31 @@ for map in maps:
                 0b11, # teleport to map->location
                 0b111, # teleport to map->location->entity
             ]
-            to_map = map_name
+            if not code2:
+                continue
+            fn = ''
+            hsh = ''
             if code2&0b001:
                 to_x, to_y = unpack(map_f, 'i', 2)
-                to_x, to_y = int(to_x), int(to_y)
+                hsh = '#room-{}'.format(coord_id(to_x, to_y))
             if code2&0b010:
                 to_map = map_f.read(unpack(map_f, 'i')).decode('utf-8')
+                fn = rename_map(to_map)+'.html' if to_map!=map_name else ''
             if code2&0b100:
                 to_entity = map_f.read(unpack(map_f, 'i')).decode('utf-8')
-            to_map = rename_map(to_map)
-            
+                hsh = '#ent-{}-{}'.format(coord_id(to_x, to_y), rename_entity(to_entity))
+            eedge = xml.SubElement(eroom, 'a', {'class': 'edge {}'.format(edge)})
+            eedge.set('id', 'edge-{}-{}'.format(coord_id(coord_x, coord_y), edge))
+            eedge.set('href', fn+hsh)
+            sz = 10
+            x, y, w, h = {
+                'top': (0, 0, rw, sz),
+                'bottom': (0, rh-sz, rw, sz),
+                'left': (0, 0, sz, rh),
+                'right': (rw-sz, 0, sz, rh),
+            }[edge]
+            x, y, w, h = x+2, y+2, w-4, h-4
+            eedge.set('style', '''left: {}px; top: {}px; width: {}px; height: {}px'''.format(x, y, w, h))
         
         grid[coord_x, coord_y] = room_img
     
