@@ -26,8 +26,8 @@ function highlight(el) {
     var start_sz = end_sz+500
     var dims = function(sz) {
         return {
-            top: $el.width()/2-sz/2,
-            left: $el.height()/2-sz/2,
+            left: $el.width()/2-sz/2,
+            top: $el.height()/2-sz/2,
             width: sz,
             height: sz
         }
@@ -39,7 +39,10 @@ function highlight(el) {
         complete: function() {
             $hl.animate(dims(end_sz+100), {
                 duration: 200,
-                queue: false
+                queue: false,
+                complete: function() {
+                    $hl.remove()
+                }
             })
         }
     })
