@@ -122,6 +122,13 @@ $(function() {
 
     $(window).load(function() {
         setTimeout(scroll_to_hash, 1)
+        var $el = $('#header').clone()
+        $el.css({
+            position: 'fixed',
+            top: 0,
+            left: 0
+        })
+        $('body').append($el)
     })
     $(window).on('hashchange', function() {
         scroll_to_hash()

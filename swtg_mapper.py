@@ -180,7 +180,18 @@ html = '''<!DOCTYPE html>
     <script type="text/javascript" src="script.js"></script>
 </head>
 <body>
+
+<div id="header" class="header">
+    <span class="right">
+        <h2><a href="http://superwinthegame.com/">Super Win the Game</a></h2> (game and visuals created by <a href="http://minorkeygames.com/">Minor Key Games</a>)
+    </span>
+    <span class="left">
+        <h2>Map: {title}</h2> (made by <a href="http://steamcommunity.com/id/blaxpirit">BlaXpirit</a> with help of <a href="http://steamcommunity.com/id/morsk">Morsk</a>)
+    </span>
+</div>
+
 {body}
+
 </body>
 </html>'''
 
