@@ -1,4 +1,4 @@
-swtg-map
-========
+Result:
 
-Tools to create a world map of Super Win the Game
+- [Maps Index](http://blaxpirit.pythonanywhere.com/projects/swtg/index.html)
+- [Overworld Map](http://blaxpirit.pythonanywhere.com/projects/swtg/overworld-map.html)
