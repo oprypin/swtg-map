@@ -199,6 +199,11 @@ def slugify(s, sep='-'):
     s = re.sub(r'[^\w\s-]+', sep, s, flags=re.UNICODE)
     s = re.sub(r'[{}\s]+'.format(re.escape(sep)), sep, s)
     return s.strip(sep)
+def rename_entity(s):
+    s = s.replace('Mini MacGuffin', 'Gem') # wat
+    return slugify(s)
+def rename_map(s):
+    return slugify(s)
 
 def coord_id(x, y):
     return '-'.join(str(int(i)).replace('-', 'n') for i in (x, y))
@@ -262,13 +267,14 @@ for map in maps:
             if sprite is not None and sprite.get('sheet'):
                 s = get_img(sprite.get('sheet'))
                 sx, sy = 0, 0
-                if 'Ghost Block' in sprite.get('name'):
+                sprite_name = sprite.get('name')
+                if 'Ghost Block' in sprite_name:
                     sy = h*1 # Make ghost blocks fully visible
-                elif 'NPC' in sprite.get('name'):
+                elif 'NPC' in sprite_name:
                     npc = root.find('./npc[@face]')
                     if npc is not None:
                         if npc.get('face')=='right':
-                            sx += 128
+                            sx += s.width()//2
                     colors, row = find_npc_values(entity_id)
                     rgb = [QColor(c).rgb() for c in [qt.red, qt.green, qt.blue]]
                     colors = dict(zip(rgb, colors))
@@ -280,39 +286,42 @@ for map in maps:
                                 s.setPixel(px, py, colors[s.pixel(px, py)])
                             except KeyError:
                                 pass
-                elif 'Phase Block' in sprite.get('name'):
+                elif 'Phase Block' in sprite_name:
                     if root.find('./script/onfullyloaded/action[@text="run self initoff"]') is not None:
-                        sx += s.width()//2
+                        #sx += w
+                        ent_p.setOpacity(0.6)
                 vector = root.find('./space/velocity/vector')
                 mod = root.find('./anim/sequence[@startplaying="true"]/mod')
                 if vector is not None and mod is not None:
-                    if int(vector.get('x')) * int(mod.get('nx')) >= 0: # if signs match
+                    if int(vector.get('x'))*int(mod.get('nx')) >= 0: # if signs match
                         sy = int(mod.get('oy'))
                 ent_p.drawImage(x-w//2, y-h//2, s, sx, sy, w, h)
-            
+                ent_p.setOpacity(1)
+            else:
+                sprite_name = None
 
             eentity = xml.SubElement(eroom, 'a', {'class': 'entity', 'name': entity_id_s})
             entity_name = root.find('./name')
             if entity_name is not None:
                 entity_name = entity_name.get('name')
             if not entity_name and sprite is not None:
-                entity_name = sprite.get('name')
+                entity_name = sprite_name
                 if entity_name:
                     entity_name = entity_name[entity_name.index('SWG_')+4:]
-                    entity_sprite_names[entity_name].append(eentity)
+                    entity_sprite_names[entity_name].append((x/rw+y/rh, eentity))
             if not entity_name:
                 entity_name = entity_id_s
             if entity_name:
-                eentity.set('id', 'ent-{}-{}'.format(coord_id(coord_x, coord_y), slugify(entity_name)))
+                eentity.set('id', 'ent-{}-{}'.format(coord_id(coord_x, coord_y), rename_entity(entity_name)))
             eentity.set('style', '''left: {}px; top: {}px; width: {}px; height: {}px'''.format(
                 x-w//2, y-h//2, w, h
             ))
             
             for tele in root.findall('./teleport[@mapx]'):
-                filename = slugify(tele.get('map'))+'.html' if tele.get('map')!=map_name else ''
+                filename = rename_map(tele.get('map'))+'.html' if tele.get('map')!=map_name else ''
                 try:
                     eentity.set('href', '{}#ent-{}-{}'.format(
-                        filename, coord_id(tele.get('mapx'), tele.get('mapy')), slugify(tele.get('entity'))
+                        filename, coord_id(tele.get('mapx'), tele.get('mapy')), rename_entity(tele.get('entity'))
                     ))
                 except (AttributeError, ValueError):
                     print("Error in teleporter entity {}".format(entity_id_s))
@@ -322,7 +331,7 @@ for map in maps:
         ent_p.end()
         for group in entity_sprite_names.values():
             if len(group)>1:
-                for i, eentity in enumerate(group, 1):
+                for i, (order, eentity) in enumerate(sorted(group), 1):
                     eentity.set('id', '{}-{}'.format(eentity.get('id'), i))
         
         
@@ -384,7 +393,7 @@ for map in maps:
                 to_map = map_f.read(unpack(map_f, 'i'))
             if code2&0b100:
                 to_entity = map_f.read(unpack(map_f, 'i'))
-            to_map = slugify(map_name)
+            to_map = rename_map(map_name)
         
         grid[coord_x, coord_y] = room_img
     
@@ -397,7 +406,7 @@ for map in maps:
     
     edisplay.set('style',
         '''width: {}px; height: {}px; background-color: {}; background-image: url('{}.png')'''
-        .format(rw*mx, rh*my, backcolor.name(), slugify(map_name))
+        .format(rw*mx, rh*my, backcolor.name(), rename_map(map_name))
     )
     e.set('style', '''left: {}px; top: {}px'''.format(rw*dx, rh*dy))
     
@@ -436,9 +445,9 @@ for map in maps:
     
     full_p.end()
     
-    full_img.save(output('{}.png'.format(slugify(map_name))))
+    full_img.save(output('{}.png'.format(rename_map(map_name))))
     
     body = expand_html(pretty_xml(edisplay, indent='    ', encoding='ascii').decode('ascii').split('\n', 1)[1].strip())
     result = html.format(title=map_name, body=body)
-    with open(output('{}.html'.format(slugify(map_name))), 'w') as html_f:
+    with open(output('{}.html'.format(rename_map(map_name))), 'w') as html_f:
         html_f.write(result)
