@@ -132,13 +132,13 @@ def palette(el):
         f.read(2)
         tile_count = unpack(f, 'i')
         for tile_i in range(tile_count):
-            tile_name = f.read(unpack(f, 'i'))
+            tile_name = f.read(unpack(f, 'i')).decode('utf-8')
             frames = []
             frame_count = unpack(f, 'i')
             for frame_i in range(frame_count):
                 x, y = unpack(f, 'i', 2)
                 frames.append((x, y))
-            if b'Snow' in tile_name:
+            if 'Snow' in tile_name:
                 frames = [(15, 15)] # Remove snow
             self.ani.append(frames)
             f.read(5)
@@ -173,7 +173,7 @@ invis = QImage('invisible.png')
 html = '''<!DOCTYPE html>
 <html>
 <head>
-    <meta charset="ascii"/>
+    <meta charset="utf-8"/>
     <title>{title}</title>
     <link rel="stylesheet" href="style.css" type="text/css"/>
     <script type="text/javascript" src="http://code.jquery.com/jquery-1.11.1.min.js"></script>
@@ -200,10 +200,23 @@ def slugify(s, sep='-'):
     s = re.sub(r'[{}\s]+'.format(re.escape(sep)), sep, s)
     return s.strip(sep)
 def rename_entity(s):
-    s = s.replace('Mini MacGuffin', 'Gem') # wat
+    s = s.replace("Mini MacGuffin", "Gem") # wat
+    s = s.replace("Mega MacGuffin", "Heart") # wat
     return slugify(s)
 def rename_map(s):
     return slugify(s)
+def rename_map_title(s):
+    return {
+        "Entry Map": "Dreams",
+        "Astronomer Tower": "Starlight Terrace",
+        "Ice World": "Glacial Palace",
+        "Skyworld": "Sky Pillars",
+        "Subterranea": "Waterways",
+        "Styx": "Underworld Entrance",
+        "Styx Overworld": "Underworld Map",
+        "Styx Caves": "Underworld Caves",
+        "Fire Realm": "Hollow King's Lair",
+    }.get(s, s)
 
 def coord_id(x, y):
     return '-'.join(str(int(i)).replace('-', 'n') for i in (x, y))
@@ -290,6 +303,14 @@ for map in maps:
                     if root.find('./script/onfullyloaded/action[@text="run self initoff"]') is not None:
                         #sx += w
                         ent_p.setOpacity(0.6)
+                elif 'Fritzing Bolts' in sprite_name:
+                    ent_p.setOpacity(0.4)
+                elif 'Hollow King' in sprite_name:
+                    if root.find('./script/onfullyloaded/action[@text="anim self play king"]') is not None:
+                        sy = 96
+                    elif root.find('./script/onfullyloaded/query/true/action[@text="anim self play heal"]') is not None:
+                        sx, sy = 32, 64
+
                 vector = root.find('./space/velocity/vector')
                 mod = root.find('./anim/sequence[@startplaying="true"]/mod')
                 if vector is not None and mod is not None:
@@ -389,11 +410,13 @@ for map in maps:
             to_map = map_name
             if code2&0b001:
                 to_x, to_y = unpack(map_f, 'i', 2)
+                to_x, to_y = int(to_x), int(to_y)
             if code2&0b010:
-                to_map = map_f.read(unpack(map_f, 'i'))
+                to_map = map_f.read(unpack(map_f, 'i')).decode('utf-8')
             if code2&0b100:
-                to_entity = map_f.read(unpack(map_f, 'i'))
-            to_map = rename_map(map_name)
+                to_entity = map_f.read(unpack(map_f, 'i')).decode('utf-8')
+            to_map = rename_map(to_map)
+            
         
         grid[coord_x, coord_y] = room_img
     
@@ -447,7 +470,7 @@ for map in maps:
     
     full_img.save(output('{}.png'.format(rename_map(map_name))))
     
-    body = expand_html(pretty_xml(edisplay, indent='    ', encoding='ascii').decode('ascii').split('\n', 1)[1].strip())
-    result = html.format(title=map_name, body=body)
+    body = expand_html(pretty_xml(edisplay, indent='    ').split('\n', 1)[1].strip())
+    result = html.format(title=rename_map_title(map_name), body=body)
     with open(output('{}.html'.format(rename_map(map_name))), 'w') as html_f:
         html_f.write(result)
