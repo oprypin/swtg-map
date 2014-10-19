@@ -451,15 +451,6 @@ for map in maps:
             eedge = xml.SubElement(eroom, 'a', {'class': 'edge {}'.format(edge)})
             eedge.set('id', 'edge-{}-{}'.format(coord_id(coord_x, coord_y), edge))
             eedge.set('href', fn+hsh)
-            sz = 10
-            x, y, w, h = {
-                'top': (0, 0, rw, sz),
-                'bottom': (0, rh-sz, rw, sz),
-                'left': (0, 0, sz, rh),
-                'right': (rw-sz, 0, sz, rh),
-            }[edge]
-            x, y, w, h = x+2, y+2, w-4, h-4
-            eedge.set('style', '''left: {}px; top: {}px; width: {}px; height: {}px'''.format(x, y, w, h))
         
         grid[coord_x, coord_y] = room_img
     
@@ -497,13 +488,13 @@ for map in maps:
             color = QColor(cr, cb, cg, ca)
             full_p.fillRect(QRect((x+dx)*rw, (y+dy)*rh, w*rw, h*rh), color)
         eregion = xml.SubElement(e, 'div', {'class': 'region'})
-        eregion.set('style', '''left: {}px; top: {}px; width: {}px; height: {}px'''.format(x*rw+1, y*rh+1, w*rw-2, h*rh-2))
+        eregion.set('style', '''left: {}px; top: {}px; width: {}px; height: {}px'''.format(x*rw, y*rh, w*rw, h*rh))
         
         map_f.read(unpack(map_f, 'i'))
     
     for x, y in remaining_rooms:
         eregion = xml.SubElement(e, 'div', {'class': 'region'})
-        eregion.set('style', '''left: {}px; top: {}px; width: {}px; height: {}px'''.format(x*rw+1, y*rh+1, rw-2, rh-2))
+        eregion.set('style', '''left: {}px; top: {}px; width: {}px; height: {}px'''.format(x*rw, y*rh, rw, rh))
 
     
     for (x, y), v in grid.items():

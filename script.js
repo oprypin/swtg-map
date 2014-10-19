@@ -18,16 +18,18 @@ $(document).on({
     }
 })
 
-
+var $highlight = $('<div/>')
 function highlight(el) {
     $el = $(el)
-    var $hl = $('<div class="highlight"/>').appendTo($el)
+    $parent = $el.parent()
+    $highlight.remove()
+    $highlight = $('<div class="highlight"/>').appendTo($parent)
+    var $hl = $highlight
     var end_sz = ($el.width()+$el.height())/2
-    var start_sz = end_sz+500
     var dims = function(sz) {
         return {
-            left: $el.width()/2-sz/2,
-            top: $el.height()/2-sz/2,
+            left: $el.position().left+$el.width()/2-sz/2,
+            top: $el.position().top+$el.height()/2-sz/2,
             width: sz,
             height: sz
         }
@@ -39,10 +41,7 @@ function highlight(el) {
         complete: function() {
             $hl.animate(dims(end_sz+100), {
                 duration: 200,
-                queue: false,
-                complete: function() {
-                    $hl.remove()
-                }
+                queue: false
             })
         }
     })
@@ -105,10 +104,35 @@ function scroll_and_hash(el, duration) {
     }, 1)
 }
 
+
+var current_file = window.location.pathname
+current_file = current_file.substring(current_file.lastIndexOf('/')+1)
+current_file = current_file.substring(0, current_file.indexOf('.'))
+var found_key = 'blaxpirit.swtg.found.'+current_file
+
+function store_gems() {
+    var found = []
+    $('.entity.gem.found').each(function() {
+        found.push($(this).attr('id'))
+    })
+    localStorage[found_key] = found.join(',')
+}
+function upd_gems() {
+    var found = localStorage[found_key].split(',')
+    for (var i = 0; i<found.length; ++i) {
+        $(document.getElementById(found[i])).addClass('found')
+    }
+}
+
 $(function() {
     $('.entity').dblclick(function() {
         scroll_and_hash(this, 400)
     })
+    $('.entity.gem').click(function() {
+        $(this).toggleClass('found')
+        store_gems()
+    })
+
     $('a[href^="#"]').click(function(e) {
         if (e.preventDefault) {
             e.preventDefault()
@@ -119,16 +143,18 @@ $(function() {
         scroll_and_hash($(id), 600)
     })
 
+    upd_gems()
+
+    var $el = $('#header').clone()
+    $el.css({
+        position: 'fixed',
+        top: 0,
+        left: 0
+    })
+    $('body').append($el)
 
     $(window).load(function() {
         setTimeout(scroll_to_hash, 1)
-        var $el = $('#header').clone()
-        $el.css({
-            position: 'fixed',
-            top: 0,
-            left: 0
-        })
-        $('body').append($el)
     })
     $(window).on('hashchange', function() {
         scroll_to_hash()
