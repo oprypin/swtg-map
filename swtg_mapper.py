@@ -174,6 +174,7 @@ html = '''<!DOCTYPE html>
 <html>
 <head>
     <meta charset="utf-8"/>
+    <meta name="robots" content="noindex"/>
     <title>{title}</title>
     <link rel="stylesheet" href="style.css" type="text/css"/>
     <script type="text/javascript" src="http://code.jquery.com/jquery-1.11.1.min.js"></script>

@@ -118,13 +118,18 @@ function store_gems() {
     localStorage[found_key] = found.join(',')
 }
 function upd_gems() {
-    var found = localStorage[found_key].split(',')
-    for (var i = 0; i<found.length; ++i) {
-        $(document.getElementById(found[i])).addClass('found')
+    if (localStorage[found_key]) {
+        var found = localStorage[found_key].split(',')
+        for (var i = 0; i<found.length; ++i) {
+            $(document.getElementById(found[i])).addClass('found')
+        }
     }
 }
 
 $(function() {
+    $('.entity').click(function() {
+        history.replaceState({}, '', '#'+this.id)
+    })
     $('.entity').dblclick(function() {
         scroll_and_hash(this, 400)
     })
@@ -143,8 +148,6 @@ $(function() {
         scroll_and_hash($(id), 600)
     })
 
-    upd_gems()
-
     var $el = $('#header').clone()
     $el.css({
         position: 'fixed',
@@ -159,4 +162,6 @@ $(function() {
     $(window).on('hashchange', function() {
         scroll_to_hash()
     })
+
+    upd_gems()
 })
