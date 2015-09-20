@@ -28,6 +28,7 @@ import shutil
 import re
 import xml.etree.ElementTree as xml
 from xml.dom import minidom
+import configparser
 
 import qt
 qt.init()
@@ -86,6 +87,7 @@ def pretty_xml(element, **kwargs):
     dom = minidom.parseString(s)
     return dom.toprettyxml(**kwargs)
 def expand_html(s):
+    s = s.replace('[NEWLINE]', '&#10;')
     return re.sub(r'<(div|a)(.*?)/>', r'<\1\2></\1>', s)
 
 def content(*fn):
@@ -95,10 +97,22 @@ def output(*fn):
 
 with open(content('SWG_Super Win the Game.vdd'), 'rb') as campaign_f:
     root = parse_ndd_xml(campaign_f)
-#with open(output('SWG_Super Win the Game.vdd.xml'), 'w') as xml_f:
-    #xml_f.write(pretty_xml(root, indent='  '))
-
 campaign = root.find('./campaign')
+
+strings = configparser.ConfigParser()
+with open(content('SWG_Strings.txt'), encoding='utf-8') as strings_f:
+    print(strings_f.read(1)) # Skip strange bytes
+    strings.read_file(strings_f)
+strings = dict(strings.items())
+
+
+if os.path.isdir(output('ndd')):
+    for fn in os.listdir(content()):
+        if fn.endswith(('.ndd', '.vdd')):
+            with open(content(fn), 'rb') as f:
+                f_root = parse_ndd_xml(f)
+            with open(output('ndd', fn+'.xml'), 'w') as xml_f:
+                xml_f.write(pretty_xml(f_root, indent='  '))
 
 
 pal_img = QImage(content('NPC_Palettes.bmp'))
@@ -177,7 +191,7 @@ html = '''<!DOCTYPE html>
     <meta name="robots" content="noindex"/>
     <title>{title}</title>
     <link rel="stylesheet" href="style.css" type="text/css"/>
-    <script type="text/javascript" src="http://code.jquery.com/jquery-1.11.1.min.js"></script>
+    <script type="text/javascript" src="http://code.jquery.com/jquery-1.11.3.min.js"></script>
     <script type="text/javascript" src="script.js"></script>
 </head>
 <body>
@@ -280,8 +294,6 @@ for map in maps:
             entity_fn = 'SWG_EntInst_{}.ndd'.format(entity_id_s)
             with open(content(entity_fn), 'rb') as entity_f:
                 root = parse_ndd_xml(entity_f)
-            #with open(output(os.path.basename(entity_fn)+'.xml'), 'w') as xml_f:
-                #xml_f.write(pretty_xml(root, indent='  '))
             
             pos = root.find('./space/position/vector[@x]')
             x, y = int(pos.get('x')), int(pos.get('y'))
@@ -356,9 +368,16 @@ for map in maps:
                     add_class('heart')
             else:
                 entity_name = entity_id_s
+            text = strings.get(entity_name) or strings.get(entity_id_s)
+            if text:
+                text = '[NEWLINE]'.join(
+                    "\N{BULLET} " + re.sub(r'\{([a-zA-Z]+:)*([a-zA-Z]+)\}', r'[\2]', v.replace(r'\n', '[NEWLINE]\N{EN SPACE}'))
+                    for k, v in text.items()
+                    if not ((v.startswith('[') and v.endswith(']')))
+                )
+                eentity.set('title', text)
             if entity_name:
-                entity_name = rename_entity(entity_name)
-                eentity.set('id', 'ent-{}-{}'.format(coord_id(coord_x, coord_y), entity_name))
+                eentity.set('id', 'ent-{}-{}'.format(coord_id(coord_x, coord_y), rename_entity(entity_name)))
             eentity.set('style', '''left: {}px; top: {}px; width: {}px; height: {}px'''.format(
                 x-w//2, y-h//2, w, h
             ))
