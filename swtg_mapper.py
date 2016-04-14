@@ -360,19 +360,19 @@ for map in maps:
                 if entity_name:
                     entity_name = entity_name[entity_name.index('SWG_')+4:]
                     entity_sprite_names[entity_name].append((x/rw+y/rh, eentity))
+            text = list(strings.get(entity_id_s, {}).values())
             if entity_name:
                 unimportant = False
                 if rename_entity(entity_name) in ['gem', 'green-gem']:
                     add_class('gem')
                 elif rename_entity(entity_name)=='heart':
                     add_class('heart')
-            else:
-                entity_name = entity_id_s
-            text = strings.get(entity_name) or strings.get(entity_id_s)
+                text.extend(strings.get(entity_name, {}).values())
+
             if text:
                 text = '[NEWLINE]'.join(
                     "\N{BULLET} " + re.sub(r'\{([a-zA-Z]+:)*([a-zA-Z]+)\}', r'[\2]', v.replace(r'\n', '[NEWLINE]\N{EN SPACE}'))
-                    for k, v in text.items()
+                    for v in text
                     if not ((v.startswith('[') and v.endswith(']')))
                 )
                 eentity.set('title', text)
