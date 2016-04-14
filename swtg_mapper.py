@@ -385,12 +385,16 @@ for map in maps:
             for tele in root.findall('./teleport[@mapx]'):
                 unimportant = False
                 filename = rename_map(tele.get('map'))+'.html' if tele.get('map')!=map_name else ''
-                try:
+                if eentity.get('href') and tele.get('map')==map_name:
+                    continue
+                if tele.get('entity'):
                     eentity.set('href', '{}#ent-{}-{}'.format(
                         filename, coord_id(tele.get('mapx'), tele.get('mapy')), rename_entity(tele.get('entity'))
                     ))
-                except (AttributeError, ValueError):
-                    print("Error in teleporter entity {}".format(entity_id_s))
+                else:
+                    eentity.set('href', '{}#room-{}'.format(
+                        filename, coord_id(tele.get('mapx'), tele.get('mapy'))
+                    ))
 
             if unimportant:
                 add_class('unimportant')
