@@ -368,6 +368,8 @@ for map in maps:
                 elif rename_entity(entity_name)=='heart':
                     add_class('heart')
                 text.extend(strings.get(entity_name, {}).values())
+            else:
+                entity_name = entity_id_s
 
             if text:
                 text = '[NEWLINE]'.join(
