@@ -2,8 +2,8 @@
 !.gitignore
 
 !*.py
-!qt
-!qt/*.py
+!universal_qt/
+!universal_qt/*.py
 !*.js
 !*.css
 !*.png

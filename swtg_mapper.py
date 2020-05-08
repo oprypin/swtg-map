@@ -30,8 +30,9 @@ import xml.etree.ElementTree as xml
 from xml.dom import minidom
 import configparser
 
+import universal_qt
+
 import qt
-qt.init()
 from qt.core import *
 from qt.gui import *
 from qt.widgets import QApplication
@@ -136,7 +137,7 @@ class Palette(object):
 def palette(el):
     self = Palette()
     img = QPixmap(content(el.get('src')))
-    mask = img.createMaskFromColor(el.get('chromakey'), qt.MaskInColor)
+    mask = img.createMaskFromColor(QColor(el.get('chromakey')), qt.MaskInColor)
     img.setMask(mask)
     
     self.img = img.toImage()
