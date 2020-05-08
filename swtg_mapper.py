@@ -192,17 +192,17 @@ html = '''<!DOCTYPE html>
     <meta name="robots" content="noindex"/>
     <title>{title}</title>
     <link rel="stylesheet" href="style.css" type="text/css"/>
-    <script type="text/javascript" src="http://code.jquery.com/jquery-1.11.3.min.js"></script>
+    <script type="text/javascript" src="//code.jquery.com/jquery-1.11.3.min.js"></script>
     <script type="text/javascript" src="script.js"></script>
 </head>
 <body>
 
 <div id="header" class="header">
     <div class="right">
-        <h2><a href="http://superwinthegame.com/">Super Win the Game</a></h2> (game and visuals created by <a href="http://minorkeygames.com/">Minor Key Games</a>)
+        <h2><a href="https://superwinthegame.com/">Super Win the Game</a></h2> (game and visuals created by <a href="https://minorkeygames.com/">Minor Key Games</a>)
     </div>
     <div class="left">
-        <h2>Map: {title}</h2> (made by <a href="http://steamcommunity.com/id/blaxpirit">BlaXpirit</a> with help of <a href="http://steamcommunity.com/id/morsk">Morsk</a>)
+        <h2>Map: {title}</h2> (made by <a href="https://steamcommunity.com/id/blaxpirit">BlaXpirit</a> with help of <a href="https://steamcommunity.com/id/morsk">Morsk</a>)
     </div>
 </div>
 
