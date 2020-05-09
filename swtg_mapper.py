@@ -16,8 +16,6 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 
-from __future__ import division, print_function
-
 import sys
 import itertools
 import collections
@@ -25,6 +23,7 @@ import os.path
 import random
 import struct
 import shutil
+import typing
 import re
 import xml.etree.ElementTree as xml
 from xml.dom import minidom
@@ -43,18 +42,15 @@ import mersenne
 app = QApplication([])
 
 
-def unpack(f, fmt="B", n=None):
-    if isinstance(fmt, int) and n is None:
-        fmt, n = "B", fmt
+def unpack(f, fmt, n=None):
     if n is not None:
         fmt *= n
-    if not fmt.startswith("<"):
-        fmt = "<" + fmt
-    sz = struct.calcsize(fmt)
-    r = struct.unpack(fmt, f.read(sz))
+    fmt = "<" + fmt
+    size = struct.calcsize(fmt)
+    result = struct.unpack(fmt, f.read(size))
     if n is None:
-        (r,) = r
-    return r
+        [result] = result
+    return result
 
 
 def parse_ndd_xml(f, parent=None):
@@ -107,8 +103,7 @@ with open(content("SWG_Super Win the Game.vdd"), "rb") as campaign_f:
 campaign = root.find("./campaign")
 
 strings = configparser.ConfigParser()
-with open(content("SWG_Strings.txt"), encoding="utf-8") as strings_f:
-    print(strings_f.read(1))  # Skip strange bytes
+with open(content("SWG_Strings.txt"), encoding="utf-8-sig") as strings_f:
     strings.read_file(strings_f)
 strings = dict(strings.items())
 
@@ -142,45 +137,46 @@ def find_npc_values(entity_id):
     return npc_colors[color_index], sprite_index
 
 
+class Animation(typing.NamedTuple):
+    frames: list
+
+
 class Palette(object):
-    pass
+    def __init__(self, el):
+        img = QPixmap(content(el.get("src")))
+        chromakey = QColor(el.get("chromakey"))
+        mask = img.createMaskFromColor(chromakey, qt.MaskInColor)
+        img.setMask(mask)
+
+        self.img = img.toImage()
+
+        self.animations = []
+        with open(content(el.get("animation")), "rb") as f:
+            f.read(2)
+            tile_count = unpack(f, "i")
+            for tile_i in range(tile_count):
+                tile_name = f.read(unpack(f, "i")).decode("utf-8")
+                frames = []
+                frame_count = unpack(f, "i")
+                for frame_i in range(frame_count):
+                    x, y = unpack(f, "i", 2)
+                    frames.append((x, y))
+                if "Snow" in tile_name:
+                    frames = [(15, 15)]  # Remove snow
+                unpack(f, "i")
+                unpack(f, "B")
+                self.animations.append(Animation(frames))
+
+        self.collision = dict()
+        with open(content(el.get("collision")), "rb") as f:
+            f.read(2)
+            w, h = unpack(f, "i", 2)
+            for x in range(w):
+                for y in range(h):
+                    self.collision[x, y] = unpack(f, "B")
 
 
-def palette(el):
-    self = Palette()
-    img = QPixmap(content(el.get("src")))
-    mask = img.createMaskFromColor(QColor(el.get("chromakey")), qt.MaskInColor)
-    img.setMask(mask)
-
-    self.img = img.toImage()
-
-    self.ani = []
-    with open(content(el.get("animation")), "rb") as f:
-        f.read(2)
-        tile_count = unpack(f, "i")
-        for tile_i in range(tile_count):
-            tile_name = f.read(unpack(f, "i")).decode("utf-8")
-            frames = []
-            frame_count = unpack(f, "i")
-            for frame_i in range(frame_count):
-                x, y = unpack(f, "i", 2)
-                frames.append((x, y))
-            if "Snow" in tile_name:
-                frames = [(15, 15)]  # Remove snow
-            self.ani.append(frames)
-            f.read(5)
-
-    self.collision = dict()
-    with open(content(el.get("collision")), "rb") as f:
-        f.read(2)
-        w, h = unpack(f, "i", 2)
-        for x in range(w):
-            for y in range(h):
-                self.collision[x, y] = unpack(f)
-    return self
-
-
-all_palettes = {el.get("name"): palette(el) for el in campaign.find("./palettes")}
+all_palettes = {el.get("name"): Palette(el) for el in campaign.find("./palettes")}
 
 
 imgs = dict()
@@ -273,6 +269,13 @@ def coord_id(x, y):
     return "-".join(str(int(i)).replace("-", "n") for i in (x, y))
 
 
+def set_style(el, d):
+    style = "; ".join(
+        f"{k}: {v}" + ("px" if isinstance(v, int) else "") for k, v in d.items()
+    )
+    el.set("style", style)
+
+
 for map in maps:
     edisplay = xml.Element("div", {"id": "display"})
     e = xml.SubElement(edisplay, "div", {"id": "offset"})
@@ -298,11 +301,9 @@ for map in maps:
 
         eroom = xml.SubElement(e, "div", {"class": "room"})
         eroom.set("id", "room-" + coord_id(coord_x, coord_y))
-        eroom.set(
-            "style",
-            """left: {}px; top: {}px; width: {}px; height: {}px""".format(
-                coord_x * rw, coord_y * rh, rw, rh
-            ),
+        set_style(
+            eroom,
+            {"left": coord_x * rw, "top": coord_y * rh, "width": rw, "height": rh},
         )
 
         ent_img = QImage(rw, rh, QImage.Format_ARGB32)
@@ -313,7 +314,7 @@ for map in maps:
 
         entity_count = unpack(map_f, "i")
         for entity_i in range(entity_count):
-            unimportant = True
+            important = False
 
             for xml_i in range(3):
                 map_f.read(unpack(map_f, "i"))
@@ -326,17 +327,14 @@ for map in maps:
             pos = root.find("./space/position/vector[@x]")
             x, y = int(pos.get("x")), int(pos.get("y"))
             size = root.findall("./space/scale/vector[@x]")[-1]
-            if size is not None:
-                w, h = int(size.get("x")), int(size.get("y"))
-            else:
-                w = h = 0
+            w, h = int(size.get("x")), int(size.get("y"))
             sprite = root.find("./sprite")
             if sprite is not None:
                 sprite_name = sprite.get("name")
             else:
                 sprite_name = None
             if sprite is not None and sprite.get("sheet"):
-                unimportant = False
+                important = True
                 s = get_img(sprite.get("sheet"))
                 sx, sy = 0, 0
                 if "Ghost Block" in sprite_name:
@@ -409,7 +407,7 @@ for map in maps:
                     entity_sprite_names[entity_name].append((x / rw + y / rh, eentity))
             text = list(strings.get(entity_id_s, {}).values())
             if entity_name:
-                unimportant = False
+                important = True
                 if rename_entity(entity_name) in ["gem", "green-gem"]:
                     add_class("gem")
                 elif rename_entity(entity_name) == "heart":
@@ -433,19 +431,15 @@ for map in maps:
             if entity_name:
                 eentity.set(
                     "id",
-                    "ent-{}-{}".format(
-                        coord_id(coord_x, coord_y), rename_entity(entity_name)
-                    ),
+                    f"ent-{coord_id(coord_x, coord_y)}-{rename_entity(entity_name)}",
                 )
-            eentity.set(
-                "style",
-                """left: {}px; top: {}px; width: {}px; height: {}px""".format(
-                    x - w // 2, y - h // 2, w, h
-                ),
+            set_style(
+                eentity,
+                {"left": x - w // 2, "top": y - h // 2, "width": w, "height": h},
             )
 
             for tele in root.findall("./teleport[@mapx]"):
-                unimportant = False
+                important = True
                 filename = (
                     rename_map(tele.get("map")) + ".html"
                     if tele.get("map") != map_name
@@ -470,7 +464,7 @@ for map in maps:
                         ),
                     )
 
-            if unimportant:
+            if not important:
                 add_class("unimportant")
 
             map_f.read(16)
@@ -502,7 +496,8 @@ for map in maps:
                     continue
                 pal = palettes[pal]
                 if is_ani == 1:
-                    px, py = rand.choice(pal.ani[px])
+                    anim = pal.animations[px]
+                    px, py = rand.choice(anim.frames)
 
                 if not fg:
                     bg_collision = pal.collision[px, py]
@@ -527,7 +522,7 @@ for map in maps:
         room_p.end()
 
         for edge in ["top", "bottom", "left", "right"]:
-            code1, code2 = unpack(map_f, 2)
+            code1, code2 = unpack(map_f, "B", 2)
             assert code1 in [0, 1]
             scroll = bool(code1)
             assert code2 % 0b1000 in [
@@ -563,13 +558,16 @@ for map in maps:
     mx = max(x for x, y in grid) + dx + 1
     my = max(y for x, y in grid) + dy + 1
 
-    edisplay.set(
-        "style",
-        """width: {}px; height: {}px; background-color: {}; background-image: url('{}.png')""".format(
-            rw * mx, rh * my, backcolor.name(), rename_map(map_name)
-        ),
+    set_style(
+        edisplay,
+        {
+            "width": rw * mx,
+            "height": rh * my,
+            "background-color": backcolor.name(),
+            "background-image": f"url('{rename_map(map_name)}.png')",
+        },
     )
-    e.set("style", """left: {}px; top: {}px""".format(rw * dx, rh * dy))
+    set_style(e, {"left": rw * dx, "top": rh * dy})
 
     full_img = QImage(rw * mx, rh * my, QImage.Format_ARGB32)
     full_img.fill(qt.transparent)
@@ -583,8 +581,8 @@ for map in maps:
     modifier_count = unpack(map_f, "i")
     for modifier_i in range(modifier_count):
         x, y, w, h = unpack(map_f, "i", 4)
-        colored = unpack(map_f)
-        cg, cb, cr, ca = unpack(map_f, 4)
+        colored = unpack(map_f, "B")
+        cg, cb, cr, ca = unpack(map_f, "B", 4)
         for i in range(x, x + w):
             for j in range(y, y + h):
                 del remaining_rooms[i, j]
@@ -592,23 +590,15 @@ for map in maps:
             color = QColor(cr, cb, cg, ca)
             full_p.fillRect(QRect((x + dx) * rw, (y + dy) * rh, w * rw, h * rh), color)
         eregion = xml.SubElement(e, "div", {"class": "region"})
-        eregion.set(
-            "style",
-            """left: {}px; top: {}px; width: {}px; height: {}px""".format(
-                x * rw, y * rh, w * rw, h * rh
-            ),
+        set_style(
+            eregion, {"left": x * rw, "top": y * rh, "width": w * rw, "height": h * rh}
         )
 
         map_f.read(unpack(map_f, "i"))
 
     for x, y in remaining_rooms:
         eregion = xml.SubElement(e, "div", {"class": "region"})
-        eregion.set(
-            "style",
-            """left: {}px; top: {}px; width: {}px; height: {}px""".format(
-                x * rw, y * rh, rw, rh
-            ),
-        )
+        set_style(eregion, {"left": x * rw, "top": y * rh, "width": rw, "height": rh})
 
     for (x, y), v in grid.items():
         full_p.drawImage((x + dx) * rw, (y + dy) * rh, v)

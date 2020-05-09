@@ -43,9 +43,9 @@ def extract_number():
 def generate_numbers():
     global MT
     for i in range(624):
-        y = (MT[i] & 0x80000000) + (  ## bit 31 (32nd bit) of MT[i]
-            MT[(i + 1) % 624] & 0x7FFFFFFF
-        )  ## bits 0-30 (first 31 bits) of MT[...]
+        a = MT[i] & 0x80000000  # bit 31 (32nd bit) of MT[i]
+        b = MT[(i + 1) % 624] & 0x7FFFFFFF  # bits 0-30 (first 31 bits) of MT[...]
+        y = a + b
         MT[i] = MT[(i + 397) % 624] ^ (y >> 1)
         if y % 2 != 0:
             MT[i] ^= 0x9908B0DF
