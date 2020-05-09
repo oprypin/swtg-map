@@ -19,6 +19,8 @@
 import sys
 import itertools
 import collections
+import functools
+import io
 import os.path
 import random
 import struct
@@ -58,7 +60,7 @@ def parse_ndd_xml(f, parent=None):
         header = f.read(8)
         assert header[1:4] == b"ndd"
 
-    tag = f.read(unpack(f, "i")).decode("utf-8")
+    tag = f.read(unpack(f, "i")).decode()
 
     if parent is None:
         element = xml.Element(tag)
@@ -69,8 +71,8 @@ def parse_ndd_xml(f, parent=None):
     tag_count = unpack(f, "i")
 
     for attr_i in range(attr_count):
-        attr = f.read(unpack(f, "i")).decode("utf-8")
-        value = f.read(unpack(f, "i")).decode("utf-8")
+        attr = f.read(unpack(f, "i")).decode()
+        value = f.read(unpack(f, "i")).decode()
         element.set(attr, value)
 
     for tag_i in range(tag_count):
@@ -98,7 +100,25 @@ def output(*fn):
     return os.path.join("output", *fn)
 
 
-with open(content("SWG_Super Win the Game.vdd"), "rb") as campaign_f:
+@functools.lru_cache(None)
+def get_img(fn, chromakey="fuchsia"):
+    img = QPixmap(content(fn))
+    mask = img.createMaskFromColor(QColor(chromakey), qt.MaskInColor)
+    img.setMask(mask)
+    return img.toImage()
+
+
+@functools.lru_cache(None)
+def _get_file(fn):
+    with open(content(fn), "rb") as f:
+        return f.read()
+
+
+def get_file(fn):
+    return io.BytesIO(_get_file(fn))
+
+
+with get_file("SWG_Super Win the Game.vdd") as campaign_f:
     root = parse_ndd_xml(campaign_f)
 campaign = root.find("./campaign")
 
@@ -111,7 +131,7 @@ strings = dict(strings.items())
 if os.path.isdir(output("ndd")):
     for fn in os.listdir(content()):
         if fn.endswith((".ndd", ".vdd")):
-            with open(content(fn), "rb") as f:
+            with get_file(fn) as f:
                 f_root = parse_ndd_xml(f)
             with open(output("ndd", fn + ".xml"), "w") as xml_f:
                 xml_f.write(pretty_xml(f_root, indent="  "))
@@ -145,19 +165,14 @@ class Animation(typing.NamedTuple):
 
 class Palette(object):
     def __init__(self, el):
-        img = QPixmap(content(el.get("src")))
-        chromakey = QColor(el.get("chromakey"))
-        mask = img.createMaskFromColor(chromakey, qt.MaskInColor)
-        img.setMask(mask)
-
-        self.img = img.toImage()
+        self.img = get_img(el.get("src"), el.get("chromakey"))
 
         self.animations = []
-        with open(content(el.get("animation")), "rb") as f:
+        with get_file(el.get("animation")) as f:
             f.read(2)
             tile_count = unpack(f, "i")
             for tile_i in range(tile_count):
-                tile_name = f.read(unpack(f, "i")).decode("utf-8")
+                tile_name = f.read(unpack(f, "i")).decode()
                 frames = []
                 frame_count = unpack(f, "i")
                 for frame_i in range(frame_count):
@@ -168,7 +183,7 @@ class Palette(object):
                 self.animations.append(Animation(tile_name, frames, random))
 
         self.collision = dict()
-        with open(content(el.get("collision")), "rb") as f:
+        with get_file(el.get("collision")) as f:
             f.read(2)
             w, h = unpack(f, "i", 2)
             for x in range(w):
@@ -177,18 +192,6 @@ class Palette(object):
 
 
 all_palettes = {el.get("name"): Palette(el) for el in campaign.find("./palettes")}
-
-
-imgs = dict()
-
-
-def get_img(fn):
-    if fn not in imgs:
-        img = QPixmap(content(fn))
-        mask = img.createMaskFromColor(QColor(255, 0, 255), qt.MaskInColor)
-        img.setMask(mask)
-        imgs[fn] = img.toImage()
-    return imgs[fn]
 
 
 maps = campaign.find("./maps")
@@ -285,7 +288,7 @@ def produce_map(map, anim_phase):
 
     backcolor = QColor(map.get("backcolor"))
 
-    map_f = open(content(map.get("src")), "rb")
+    map_f = get_file(map.get("src"))
     map_f.read(18)
 
     grid = dict()
@@ -320,7 +323,7 @@ def produce_map(map, anim_phase):
             entity_id = unpack(map_f, "i")
             entity_id_s = format(entity_id, "08x")
             entity_fn = "SWG_EntInst_{}.ndd".format(entity_id_s)
-            with open(content(entity_fn), "rb") as entity_f:
+            with get_file(entity_fn) as entity_f:
                 root = parse_ndd_xml(entity_f)
 
             pos = root.find("./space/position/vector[@x]")
@@ -379,31 +382,25 @@ def produce_map(map, anim_phase):
                                 s.setPixel(px, py, colors[s.pixel(px, py)])
                             except KeyError:
                                 pass
-                elif "Phase Block" in sprite_name:
-                    if (
-                        root.find(
-                            './script/onfullyloaded/action[@text="run self initoff"]'
-                        )
-                        is not None
-                    ):
+                elif "Phase Block" in sprite_name or "Retractable" in sprite_name:
+                    initoff = root.find(
+                        './script/onfullyloaded/action[@text="run self initoff"]'
+                    )
+                    if initoff is not None:
                         # sx += w
                         ent_p.setOpacity(0.6)
                 elif "Fritzing Bolts" in sprite_name:
                     ent_p.setOpacity(0.4)
                 elif "Hollow King" in sprite_name:
-                    if (
-                        root.find(
-                            './script/onfullyloaded/action[@text="anim self play king"]'
-                        )
-                        is not None
-                    ):
+                    bad = root.find(
+                        './script/onfullyloaded/action[@text="anim self play king"]'
+                    )
+                    good = root.find(
+                        './script/onfullyloaded/query/true/action[@text="anim self play heal"]'
+                    )
+                    if bad is not None:
                         sy = 96
-                    elif (
-                        root.find(
-                            './script/onfullyloaded/query/true/action[@text="anim self play heal"]'
-                        )
-                        is not None
-                    ):
+                    elif good is not None:
                         sy = 64
 
                 vector = root.find("./space/velocity/vector")
@@ -569,10 +566,10 @@ def produce_map(map, anim_phase):
                 to_x, to_y = unpack(map_f, "i", 2)
                 hsh = "#room-{}".format(coord_id(to_x, to_y))
             if code2 & 0b010:
-                to_map = map_f.read(unpack(map_f, "i")).decode("utf-8")
+                to_map = map_f.read(unpack(map_f, "i")).decode()
                 fn = rename_map(to_map) + ".html" if to_map != map_name else ""
             if code2 & 0b100:
-                to_entity = map_f.read(unpack(map_f, "i")).decode("utf-8")
+                to_entity = map_f.read(unpack(map_f, "i")).decode()
                 hsh = "#ent-{}-{}".format(
                     coord_id(to_x, to_y), rename_entity(to_entity)
                 )
