@@ -529,16 +529,8 @@ def produce_map(map, anim_phase):
 
                 # 0 nothing  1 full  2 spike  3 top  4 water  5 ice  6 toxic  7 ???
                 pxt, pyt = px * tw, py * th
-                if fg and bg_collision not in [1, 5, invis]:
-                    s = sum(
-                        qAlpha(pal.img.pixel(pxt + sx, pyt + sy))
-                        for sx in range(tw)
-                        for sy in range(th)
-                    )
-                    s /= tw * th * 256
-                    room_p.setOpacity(min(1.4 - s, 1))
-                if fg and snow:
-                    room_p.setOpacity(0.7)
+                if fg and (snow or bg_collision not in [1, 5, invis]):
+                    room_p.setOpacity(0.6)
                 room_p.drawImage(x * tw, y * th, pal.img, pxt, pyt, tw, th)
                 room_p.setOpacity(1)
             if bg_collision == invis:
