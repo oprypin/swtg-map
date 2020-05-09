@@ -139,6 +139,7 @@ def find_npc_values(entity_id):
 
 class Animation(typing.NamedTuple):
     frames: list
+    random: bool
 
 
 class Palette(object):
@@ -164,8 +165,8 @@ class Palette(object):
                 if "Snow" in tile_name:
                     frames = [(15, 15)]  # Remove snow
                 unpack(f, "i")
-                unpack(f, "B")
-                self.animations.append(Animation(frames))
+                random = unpack(f, "B")
+                self.animations.append(Animation(frames, random))
 
         self.collision = dict()
         with open(content(el.get("collision")), "rb") as f:
@@ -231,7 +232,6 @@ except Exception:
 rw, rh = 256, 224
 tw, th = 8, 8
 rtw, rth = 16 * 2, 14 * 2
-rand = random.Random(0)
 
 
 def slugify(s, sep="-"):
@@ -294,8 +294,11 @@ for map in maps:
 
     room_count = unpack(map_f, "i")
 
+    anim_rand = random.Random()
+    anim_rand.seed(0, version=2)
+
     for room_index in range(room_count):
-        print(room_index, end="\r")
+        print(room_index + 1, end="\r")
         sys.stdout.flush()
         coord_x, coord_y = unpack(map_f, "i", 2)
 
@@ -497,7 +500,8 @@ for map in maps:
                 pal = palettes[pal]
                 if is_ani == 1:
                     anim = pal.animations[px]
-                    px, py = rand.choice(anim.frames)
+                    offset = anim_rand.randrange(len(anim.frames)) if anim.random else 0
+                    px, py = anim.frames[offset]
 
                 if not fg:
                     bg_collision = pal.collision[px, py]
