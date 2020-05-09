@@ -138,6 +138,7 @@ def find_npc_values(entity_id):
 
 
 class Animation(typing.NamedTuple):
+    name: str
     frames: list
     random: bool
 
@@ -162,11 +163,9 @@ class Palette(object):
                 for frame_i in range(frame_count):
                     x, y = unpack(f, "i", 2)
                     frames.append((x, y))
-                if "Snow" in tile_name:
-                    frames = [(15, 15)]  # Remove snow
                 unpack(f, "i")
                 random = unpack(f, "B")
-                self.animations.append(Animation(frames, random))
+                self.animations.append(Animation(tile_name, frames, random))
 
         self.collision = dict()
         with open(content(el.get("collision")), "rb") as f:
@@ -498,10 +497,12 @@ for map in maps:
                 if px == py == -1:
                     continue
                 pal = palettes[pal]
+                snow = False
                 if is_ani == 1:
                     anim = pal.animations[px]
                     offset = anim_rand.randrange(len(anim.frames)) if anim.random else 0
                     px, py = anim.frames[offset]
+                    snow = "Snow" in anim.name
 
                 if not fg:
                     bg_collision = pal.collision[px, py]
@@ -516,6 +517,8 @@ for map in maps:
                     )
                     s /= tw * th * 256
                     room_p.setOpacity(min(1.4 - s, 1))
+                if fg and snow:
+                    room_p.setOpacity(0.7)
                 room_p.drawImage(x * tw, y * th, pal.img, pxt, pyt, tw, th)
                 room_p.setOpacity(1)
             if bg_collision == invis:
