@@ -156,9 +156,7 @@ $(function() {
     })
     $('body').append($el)
 
-    $(window).load(function() {
-        setTimeout(scroll_to_hash, 1)
-    })
+    setTimeout(scroll_to_hash, 1)
     $(window).on('hashchange', function() {
         scroll_to_hash()
     })
