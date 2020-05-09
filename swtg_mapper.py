@@ -231,6 +231,7 @@ except Exception:
 rw, rh = 256, 224
 tw, th = 8, 8
 rtw, rth = 16 * 2, 14 * 2
+anim_frames = 16
 
 
 def slugify(s, sep="-"):
@@ -275,13 +276,11 @@ def set_style(el, d):
     el.set("style", style)
 
 
-for map in maps:
+def produce_map(map, anim_phase):
     edisplay = xml.Element("div", {"id": "display"})
     e = xml.SubElement(edisplay, "div", {"id": "offset"})
 
-    print()
     map_name = map.get("name")
-    print(map_name)
     palettes = [all_palettes[palette.get("name")] for palette in map.iter("palette")]
 
     backcolor = QColor(map.get("backcolor"))
@@ -297,8 +296,6 @@ for map in maps:
     anim_rand.seed(0, version=2)
 
     for room_index in range(room_count):
-        print(room_index + 1, end="\r")
-        sys.stdout.flush()
         coord_x, coord_y = unpack(map_f, "i", 2)
 
         eroom = xml.SubElement(e, "div", {"class": "room"})
@@ -339,6 +336,31 @@ for map in maps:
                 important = True
                 s = get_img(sprite.get("sheet"))
                 sx, sy = 0, 0
+                find_sequence = [
+                    root.find('./anim/sequence[@name="on"]'),
+                    root.find('./anim/sequence[@name="out"]'),
+                    root.find('./anim/sequence[@startplaying="true"]'),
+                ]
+                sequence = next((el for el in find_sequence if el is not None), None)
+                if sequence is not None:
+                    frame = sequence.find("./frame")
+                    try:
+                        multiplier = round(0.7 / float(sequence.get("duration")))
+                    except ZeroDivisionError:
+                        multiplier = 0
+                    offset = anim_rand.random()
+                    dx = int(frame.get("dx"))
+                    dy = int(frame.get("dy"))
+                    total_frames = dx * dy
+                    current_frame = (
+                        int(
+                            (offset + anim_phase / anim_frames * multiplier)
+                            * total_frames
+                        )
+                        % total_frames
+                    )
+                    sx = int(frame.get("x")) + w * current_frame * (dx // total_frames)
+                    sy = int(frame.get("y")) + h * current_frame * (dy // total_frames)
                 if "Ghost Block" in sprite_name:
                     sy = h * 1  # Make ghost blocks fully visible
                 elif "NPC" in sprite_name:
@@ -382,7 +404,7 @@ for map in maps:
                         )
                         is not None
                     ):
-                        sx, sy = 32, 64
+                        sy = 64
 
                 vector = root.find("./space/velocity/vector")
                 mod = root.find('./anim/sequence[@startplaying="true"]/mod')
@@ -500,8 +522,9 @@ for map in maps:
                 snow = False
                 if is_ani == 1:
                     anim = pal.animations[px]
-                    offset = anim_rand.randrange(len(anim.frames)) if anim.random else 0
-                    px, py = anim.frames[offset]
+                    offset = anim_rand.random() if anim.random else 0
+                    idx = int((offset + anim_phase / anim_frames) * len(anim.frames))
+                    px, py = anim.frames[idx % len(anim.frames)]
                     snow = "Snow" in anim.name
 
                 if not fg:
@@ -612,9 +635,17 @@ for map in maps:
 
     full_p.end()
 
-    full_img.save(output("{}.png".format(rename_map(map_name))))
+    full_img.save(output("{}-{:02d}.png".format(rename_map(map_name), anim_phase + 1)))
 
     body = expand_html(pretty_xml(edisplay, indent="    ").split("\n", 1)[1].strip())
     result = html.format(title=rename_map_title(map_name), body=body)
     with open(output("{}.html".format(rename_map(map_name))), "w") as html_f:
         html_f.write(result)
+
+
+for map in maps:
+    print(map.get("name"))
+    for anim_phase in range(anim_frames):
+        produce_map(map, anim_phase)
+        print(anim_phase + 1, end="\r")
+        sys.stdout.flush()
