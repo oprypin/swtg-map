@@ -220,6 +220,7 @@ except Exception:
 rw, rh = 256, 224
 tw, th = 8, 8
 rtw, rth = 16*2, 14*2
+rand = random.Random(0)
 
 def slugify(s, sep='-'):
     s = s.casefold()
@@ -432,7 +433,7 @@ for map in maps:
                     continue
                 pal = palettes[pal]
                 if is_ani==1:
-                    px, py = random.choice(pal.ani[px])
+                    px, py = rand.choice(pal.ani[px])
                 
                 if not fg:
                     bg_collision = pal.collision[px, py]
@@ -501,7 +502,7 @@ for map in maps:
     for x, y in grid:
         full_p.fillRect((x+dx)*rw, (y+dy)*rh, rw, rh, backcolor)
 
-    remaining_rooms = set(grid)
+    remaining_rooms = dict.fromkeys(grid)
 
     modifier_count = unpack(map_f, 'i')
     for modifier_i in range(modifier_count):
@@ -510,7 +511,7 @@ for map in maps:
         cg, cb, cr, ca = unpack(map_f, 4)
         for i in range(x, x+w):
             for j in range(y, y+h):
-                remaining_rooms.remove((i, j))
+                del remaining_rooms[i, j]
         if colored:
             color = QColor(cr, cb, cg, ca)
             full_p.fillRect(QRect((x+dx)*rw, (y+dy)*rh, w*rw, h*rh), color)
