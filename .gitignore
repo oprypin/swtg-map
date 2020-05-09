@@ -6,6 +6,7 @@
 !universal_qt/*.py
 !*.js
 !*.css
+!index.html
 !*.png
 !README.md
 !LICENSE

@@ -202,7 +202,7 @@ html = '''<!DOCTYPE html>
         <h2><a href="https://superwinthegame.com/">Super Win the Game</a></h2> (game and visuals created by <a href="https://minorkeygames.com/">Minor Key Games</a>)
     </div>
     <div class="left">
-        <h2>Map: {title}</h2> (made by <a href="https://steamcommunity.com/id/blaxpirit">BlaXpirit</a> with help of <a href="https://steamcommunity.com/id/morsk">Morsk</a>)
+        <h2><a href="." title="Maps Index">Map</a>: {title}</h2> (made by <a href="https://steamcommunity.com/id/blaxpirit">BlaXpirit</a> with help of <a href="https://steamcommunity.com/id/morsk">Morsk</a>)
     </div>
 </div>
 
@@ -212,7 +212,7 @@ html = '''<!DOCTYPE html>
 </html>'''
 
 try:
-    for fn in ['script.js', 'style.css']:
+    for fn in ['script.js', 'style.css', 'index.html']:
         shutil.copyfile(fn, output(fn))
 except Exception:
     pass

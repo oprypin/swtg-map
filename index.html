@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8"/>
+    <title>Super Win the Game Maps Index</title>
+    <style type="text/css">
+
+body {
+    background: black;
+    font-family: sans-serif;
+    font-size: larger;
+    color: white;
+}
+
+a, a:visited {
+    color: #fec625;
+    text-decoration: none
+}
+a:active {
+    color: #ff9200;
+    text-decoration: none;
+}
+a:hover {
+    color: #ff9200;
+}
+
+li>div {
+    height: 8pt;
+}
+
+    </style>
+    <script type="text/javascript" src="//code.jquery.com/jquery-1.11.1.min.js"></script>
+    <script type="text/javascript">
+
+$(function() {
+    $('.total').each(function() {
+        var $this = $(this)
+        var file = $this.attr('id')
+        var found = localStorage['blaxpirit.swtg.found.'+file]
+        if (typeof(found)!=='undefined') {
+            found = found.split(',').length
+            $this.html(found+'/'+$this.html())
+        }
+    }).attr('title', 'Gems')
+})
+
+    </script>
+</head>
+<body>
+
+<h1><a href="https://superwinthegame.com/">Super Win the Game</a></h1> (game and visuals created by <a href="https://minorkeygames.com/">Minor Key Games</a>)
+<h2>World Map</h2> (made by <a href="https://steamcommunity.com/id/blaxpirit">BlaXpirit</a> with help of <a href="https://steamcommunity.com/id/morsk">Morsk</a>)
+<ul>
+    <li><a id="entry" href="entry-map.html">Dreams</a> [<span class="total" id="entry-map">2</span>]
+    <ul>
+        <li><b><a href="entry-map.html#ent-1-0-fromintro">Game start</a></b>
+    </ul>
+    <div></div>
+    <li><a id="subcon" href="subcon.html#room-0-0">Subcon</a> [<span class="total" id="subcon">3</span>]
+    <div></div>
+    <li><a id="overworld" href="overworld-map.html">Overworld Map</a>
+    <div></div>
+    <ul>
+        <!--East-->
+        <li><a href="lakewood-dungeon.html">Lakewood Dungeon</a> [<span class="total" id="lakewood-dungeon">14</span>]
+        <li><a href="town-exteriors.html">Town Exteriors</a> [<span class="total" id="town-exteriors">1</span>]
+        <ul>
+            <li><a href="arcadian-tower.html">Arcadian Tower</a> [<span class="total" id="arcadian-tower">0</span>]
+        </ul>
+        <div></div>
+        <li><a href="subterranea.html">Waterways</a> [<span class="total" id="subterranea">16</span>]
+        <div></div>
+        <!--South-->
+        <li><a href="desert-ruins.html">Desert Ruins</a> [<span class="total" id="desert-ruins">5</span>]
+        <ul>
+            <li><a href="desert-temple.html">Entrance</a> [<span class="total" id="desert-temple">4</span>]
+        </ul>
+        <li><a href="desert-sprawl.html">Desert Sprawl (islands)</a> [<span class="total" id="desert-sprawl">3</span>]
+        <li><a href="desert-town.html">Desert Town</a> [<span class="total" id="desert-town">2</span>]
+        <div></div>
+        <!--West-->
+        <li><a href="skyworld.html">Sky Pillars</a> [<span class="total" id="skyworld">7</span>]
+        <li><a href="astronomer-tower.html">Starlight Terrace</a> [<span class="total" id="astronomer-tower">1</span>]
+        <li><a href="swamp-town.html">Swamp Town</a> [<span class="total" id="swamp-town">2</span>]
+        <div></div>
+        <!--North-->
+        <li><a href="ice-world.html">Glacial Palace</a> [<span class="total" id="ice-world">8</span>]
+        <li><a href="ice-crossing.html">Ice Crossing</a> [<span class="total" id="ice-crossing">2</span>]
+        <li><a href="snow-town.html">Snow Town</a> [<span class="total" id="snow-town">0</span>]
+        <div></div>
+        <li><a href="fire-realm.html">Hollow King's Lair</a> [<span class="total" id="fire-realm">11</span>]
+        <ul>
+            <li><a href="hollow-heart.html">Hollow Heart</a> [<span class="total" id="hollow-heart">4</span>]
+        </ul>
+        <div></div>
+        <!--Misc-->
+        <li><a href="volcanic-lands.html">Volcanic Lands (caves)</a> [<span class="total" id="volcanic-lands">10</span>]
+        <li><a href="forests.html">Forests</a> [<span class="total" id="forests">4</span>]
+        <li><a href="grasslands.html">Grasslands (bridges)</a> [<span class="total" id="grasslands">5</span>]
+        <div></div>
+        <li><a href="town-interiors.html">Town Interiors</a> [<span class="total" id="town-interiors">2</span>]
+    </ul>
+    <div></div>
+    <li><a id="underworld" href="styx-overworld.html">Underworld Map</a>
+    <div></div>
+    <ul>
+        <li><a href="styx.html">Underworld Entrance</a> [<span class="total" id="styx">0</span>]
+        <li><a href="styx-caves.html">Underworld Caves</a> [<span class="total" id="styx-caves">18</span>]
+    </ul>
+    <div></div>
+    <li><a id="speedruns" href="town-interiors.html#ent-13-0-npc-speedrun">Speedruns</a> <b>(NEW!)</b>
+    <div></div>
+    <ul>
+        <li><a href="speedrun-maps.html#ent-14-3-galleryintro">The King's Gallery</a>
+        <li><a href="speedrun-maps.html#ent-7-n6-dreamentry">Dreamscape Nightmare</a>
+        <li><a href="speedrun-maps.html#ent-n1-6-bonehoardintro">The Bonehoard</a>
+        <li><a href="speedrun-maps.html#ent-0-0-speedrunintro">Old Arcadia</a>
+        <li><a href="speedrun-maps.html#ent-12-6-legacycavesintro">Caverns of Legacy</a>
+   </ul>
+</ul>
+
+</body>
+</html>
