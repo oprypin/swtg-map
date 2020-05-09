@@ -27,6 +27,7 @@ import struct
 import shutil
 import typing
 import re
+import threading
 import xml.etree.ElementTree as xml
 from xml.dom import minidom
 import configparser
@@ -43,16 +44,15 @@ import mersenne
 
 app = QApplication([])
 
+unpack = struct.unpack
 
-def unpack(f, fmt, n=None):
-    if n is not None:
-        fmt *= n
-    fmt = "<" + fmt
-    size = struct.calcsize(fmt)
-    result = struct.unpack(fmt, f.read(size))
-    if n is None:
-        [result] = result
-    return result
+
+def unpack_int(f):
+    return unpack("<i", f.read(4))[0]
+
+
+def unpack_ints(f, n):
+    return unpack("<" + "i" * n, f.read(4 * n))
 
 
 def parse_ndd_xml(f, parent=None):
@@ -60,19 +60,19 @@ def parse_ndd_xml(f, parent=None):
         header = f.read(8)
         assert header[1:4] == b"ndd"
 
-    tag = f.read(unpack(f, "i")).decode()
+    tag = f.read(unpack_int(f)).decode()
 
     if parent is None:
         element = xml.Element(tag)
     else:
         element = xml.SubElement(parent, tag)
 
-    attr_count = unpack(f, "i")
-    tag_count = unpack(f, "i")
+    attr_count = unpack_int(f)
+    tag_count = unpack_int(f)
 
     for attr_i in range(attr_count):
-        attr = f.read(unpack(f, "i")).decode()
-        value = f.read(unpack(f, "i")).decode()
+        attr = f.read(unpack_int(f)).decode()
+        value = f.read(unpack_int(f)).decode()
         element.set(attr, value)
 
     for tag_i in range(tag_count):
@@ -170,25 +170,25 @@ class Palette(object):
         self.animations = []
         with get_file(el.get("animation")) as f:
             f.read(2)
-            tile_count = unpack(f, "i")
+            tile_count = unpack_int(f)
             for tile_i in range(tile_count):
-                tile_name = f.read(unpack(f, "i")).decode()
+                tile_name = f.read(unpack_int(f)).decode()
                 frames = []
-                frame_count = unpack(f, "i")
+                frame_count = unpack_int(f)
                 for frame_i in range(frame_count):
-                    x, y = unpack(f, "i", 2)
+                    x, y = unpack_ints(f, 2)
                     frames.append((x, y))
-                unpack(f, "i")
-                random = unpack(f, "B")
+                unpack_int(f)
+                (random,) = f.read(1)
                 self.animations.append(Animation(tile_name, frames, random))
 
         self.collision = dict()
         with get_file(el.get("collision")) as f:
             f.read(2)
-            w, h = unpack(f, "i", 2)
+            w, h = unpack_ints(f, 2)
             for x in range(w):
                 for y in range(h):
-                    self.collision[x, y] = unpack(f, "B")
+                    (self.collision[x, y],) = f.read(1)
 
 
 all_palettes = {el.get("name"): Palette(el) for el in campaign.find("./palettes")}
@@ -293,13 +293,13 @@ def produce_map(map, anim_phase):
 
     grid = dict()
 
-    room_count = unpack(map_f, "i")
+    room_count = unpack_int(map_f)
 
     anim_rand = random.Random()
     anim_rand.seed(0, version=2)
 
     for room_index in range(room_count):
-        coord_x, coord_y = unpack(map_f, "i", 2)
+        coord_x, coord_y = unpack_ints(map_f, 2)
 
         eroom = xml.SubElement(e, "div", {"class": "room"})
         eroom.set("id", "room-" + coord_id(coord_x, coord_y))
@@ -314,13 +314,13 @@ def produce_map(map, anim_phase):
 
         entity_sprite_names = collections.defaultdict(list)
 
-        entity_count = unpack(map_f, "i")
+        entity_count = unpack_int(map_f)
         for entity_i in range(entity_count):
             important = False
 
             for xml_i in range(3):
-                map_f.read(unpack(map_f, "i"))
-            entity_id = unpack(map_f, "i")
+                map_f.read(unpack_int(map_f))
+            entity_id = unpack_int(map_f)
             entity_id_s = format(entity_id, "08x")
             entity_fn = "SWG_EntInst_{}.ndd".format(entity_id_s)
             with get_file(entity_fn) as entity_f:
@@ -508,12 +508,12 @@ def produce_map(map, anim_phase):
                         bg_collision = pal.collision[px, py]  # look at bg's collision
                 except AttributeError:
                     pass
-                px, py, is_ani, pal = unpack(map_f, "b", 4)
+                px, py, is_ani, pal = map_f.read(4)
                 if is_ani == 2:  # invisible block
                     bg_collision = invis
                     room_p.drawImage(x * tw, y * th, invis)
                     continue
-                if px == py == -1:
+                if px == py == 0xFF:
                     continue
                 pal = palettes[pal]
                 snow = False
@@ -549,7 +549,7 @@ def produce_map(map, anim_phase):
         room_p.end()
 
         for edge in ["top", "bottom", "left", "right"]:
-            code1, code2 = unpack(map_f, "B", 2)
+            code1, code2 = map_f.read(2)
             assert code1 in [0, 1]
             scroll = bool(code1)
             assert code2 % 0b1000 in [
@@ -563,13 +563,13 @@ def produce_map(map, anim_phase):
             fn = ""
             hsh = ""
             if code2 & 0b001:
-                to_x, to_y = unpack(map_f, "i", 2)
+                to_x, to_y = unpack_ints(map_f, 2)
                 hsh = "#room-{}".format(coord_id(to_x, to_y))
             if code2 & 0b010:
-                to_map = map_f.read(unpack(map_f, "i")).decode()
+                to_map = map_f.read(unpack_int(map_f)).decode()
                 fn = rename_map(to_map) + ".html" if to_map != map_name else ""
             if code2 & 0b100:
-                to_entity = map_f.read(unpack(map_f, "i")).decode()
+                to_entity = map_f.read(unpack_int(map_f)).decode()
                 hsh = "#ent-{}-{}".format(
                     coord_id(to_x, to_y), rename_entity(to_entity)
                 )
@@ -605,11 +605,10 @@ def produce_map(map, anim_phase):
 
     remaining_rooms = dict.fromkeys(grid)
 
-    modifier_count = unpack(map_f, "i")
+    modifier_count = unpack_int(map_f)
     for modifier_i in range(modifier_count):
-        x, y, w, h = unpack(map_f, "i", 4)
-        colored = unpack(map_f, "B")
-        cg, cb, cr, ca = unpack(map_f, "B", 4)
+        x, y, w, h = unpack_ints(map_f, 4)
+        colored, cg, cb, cr, ca = map_f.read(5)
         for i in range(x, x + w):
             for j in range(y, y + h):
                 del remaining_rooms[i, j]
@@ -621,7 +620,7 @@ def produce_map(map, anim_phase):
             eregion, {"left": x * rw, "top": y * rh, "width": w * rw, "height": h * rh}
         )
 
-        map_f.read(unpack(map_f, "i"))
+        map_f.read(unpack_int(map_f))
 
     for x, y in remaining_rooms:
         eregion = xml.SubElement(e, "div", {"class": "region"})
@@ -632,7 +631,11 @@ def produce_map(map, anim_phase):
 
     full_p.end()
 
-    full_img.save(output("{}-{:02d}.png".format(rename_map(map_name), anim_phase + 1)))
+    threading.Thread(
+        target=lambda: full_img.save(
+            output("{}-{:02d}.png".format(rename_map(map_name), anim_phase + 1))
+        )
+    ).start()
 
     body = expand_html(pretty_xml(edisplay, indent="    ").split("\n", 1)[1].strip())
     result = html.format(title=rename_map_title(map_name), body=body)
