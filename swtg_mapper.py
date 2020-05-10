@@ -19,12 +19,14 @@
 import sys
 import itertools
 import collections
+import concurrent.futures
 import functools
 import io
 import os.path
 import random
 import struct
 import shutil
+import subprocess
 import typing
 import re
 import threading
@@ -33,6 +35,8 @@ from xml.dom import minidom
 import configparser
 
 import universal_qt
+
+from PIL import Image
 
 import qt
 from qt.core import *
@@ -308,7 +312,7 @@ def produce_map(map, anim_phase):
             {"left": coord_x * rw, "top": coord_y * rh, "width": rw, "height": rh},
         )
 
-        ent_img = QImage(rw, rh, QImage.Format_ARGB32)
+        ent_img = QImage(rw, rh, QImage.Format_RGBA8888)
         ent_img.fill(qt.transparent)
         ent_p = QPainter(ent_img)
 
@@ -496,7 +500,7 @@ def produce_map(map, anim_phase):
                 for i, (order, eentity) in enumerate(sorted(group), 1):
                     eentity.set("id", "{}-{}".format(eentity.get("id"), i))
 
-        room_img = QImage(rw, rh, QImage.Format_ARGB32)
+        room_img = QImage(rw, rh, QImage.Format_RGBA8888)
         room_img.fill(qt.transparent)
         room_p = QPainter(room_img)
         room_p.setPen(QPen(qt.green, 1))
@@ -583,12 +587,12 @@ def produce_map(map, anim_phase):
             "width": rw * mx,
             "height": rh * my,
             "background-color": backcolor.name(),
-            "background-image": f"url('{rename_map(map_name)}.png')",
+            "background-image": f"url('{rename_map(map_name)}.gif')",
         },
     )
     set_style(e, {"left": rw * dx, "top": rh * dy})
 
-    full_img = QImage(rw * mx, rh * my, QImage.Format_ARGB32)
+    full_img = QImage(rw * mx, rh * my, QImage.Format_RGBA8888)
     full_img.fill(qt.transparent)
     full_p = QPainter(full_img)
 
@@ -623,21 +627,62 @@ def produce_map(map, anim_phase):
 
     full_p.end()
 
-    threading.Thread(
-        target=lambda: full_img.save(
-            output("{}-{:02d}.png".format(rename_map(map_name), anim_phase + 1))
-        )
-    ).start()
-
     body = expand_html(pretty_xml(edisplay, indent="    ").split("\n", 1)[1].strip())
     result = html.format(title=rename_map_title(map_name), body=body)
     with open(output("{}.html".format(rename_map(map_name))), "w") as html_f:
         html_f.write(result)
 
+    return full_img
 
-for map in maps:
-    print(map.get("name"))
+
+def img_to_buf(img):
+    data = img.constBits().asstring(img.byteCount())
+    pil = Image.frombuffer(
+        "RGBA", (img.width(), img.height()), data, "raw", "RGBA", 0, 1
+    )
+    b = io.BytesIO()
+    pil = pil.quantize()
+    pil.save(b, "GIF", transparency=255)
+    return b.getvalue()
+
+
+def save_to_gif(images, out_fn, pool):
+    gifsicle = [
+        "gifsicle",
+        "--optimize=3",
+        "--no-conserve-memory",
+        f"--delay={round(80 / anim_frames)}",
+        "--loop",
+        f"--output={out_fn}",
+        "--multifile",
+        "-",
+    ]
+    gifsicle = subprocess.Popen(gifsicle, stdin=subprocess.PIPE)
+
+    futures = [pool.submit(img_to_buf, img) for img in images]
+
+    for i, future in enumerate(futures):
+        gifsicle.stdin.write(future.result())
+
+    gifsicle.stdin.close()
+    return pool.submit(gifsicle.wait)
+
+
+def produce_images(map):
     for anim_phase in range(anim_frames):
-        produce_map(map, anim_phase)
-        print(anim_phase + 1, end="\r")
-        sys.stdout.flush()
+        img = produce_map(map, anim_phase)
+        sys.stderr.write(f"\r{anim_phase + 1}")
+        sys.stderr.flush()
+        yield img
+
+
+with concurrent.futures.ThreadPoolExecutor() as pool:
+    futures = []
+    for map in maps:
+        print(map.get("name"), file=sys.stderr)
+
+        out_fn = output(rename_map(map.get("name")) + ".gif")
+        futures.append(save_to_gif(produce_images(map), out_fn, pool))
+        print()
+
+    concurrent.futures.wait(futures)
