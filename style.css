@@ -64,16 +64,6 @@ body {
     border: 1px dashed red;
     border-color: rgba(255, 0, 0, 0.8);
 }
-.entity.gem, .entity.heart {
-    z-index: 41;
-    outline: 1px dashed lime;
-}
-.entity.gem.found {
-    border-style: none;
-    outline-style: none;
-    background-color: red;
-    background-color: rgba(255, 0, 0, 0.4);
-}
 .entity.unimportant {
     z-index: 39;
     border-color: rgba(255, 0, 0, 0.4);

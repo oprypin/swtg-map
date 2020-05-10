@@ -104,38 +104,12 @@ function scroll_and_hash(el, duration) {
     }, 1)
 }
 
-
-var current_file = window.location.pathname
-current_file = current_file.substring(current_file.lastIndexOf('/')+1)
-current_file = current_file.substring(0, current_file.indexOf('.'))
-var found_key = 'blaxpirit.swtg.found.'+current_file
-
-function store_gems() {
-    var found = []
-    $('.entity.gem.found').each(function() {
-        found.push($(this).attr('id'))
-    })
-    localStorage[found_key] = found.join(',')
-}
-function upd_gems() {
-    if (localStorage[found_key]) {
-        var found = localStorage[found_key].split(',')
-        for (var i = 0; i<found.length; ++i) {
-            $(document.getElementById(found[i])).addClass('found')
-        }
-    }
-}
-
 $(function() {
     $('.entity').click(function() {
         history.replaceState({}, '', '#'+this.id)
     })
     $('.entity').dblclick(function() {
         scroll_and_hash(this, 400)
-    })
-    $('.entity.gem').click(function() {
-        $(this).toggleClass('found')
-        store_gems()
     })
 
     $('a[href^="#"]').click(function(e) {
@@ -160,6 +134,4 @@ $(function() {
     $(window).on('hashchange', function() {
         scroll_to_hash()
     })
-
-    upd_gems()
 })
