@@ -24,11 +24,13 @@ import functools
 import io
 import os.path
 import random
+import string
 import struct
 import shutil
 import subprocess
 import typing
 import re
+import statistics
 import threading
 import xml.etree.ElementTree as xml
 from xml.dom import minidom
@@ -209,7 +211,7 @@ html = """<!DOCTYPE html>
     <meta charset="utf-8"/>
     <meta name="robots" content="noindex"/>
     <title>{title}</title>
-    <link rel="stylesheet" href="style.css" type="text/css"/>
+    <link rel="stylesheet" href="style.css?1" type="text/css"/>
 </head>
 <body>
 
@@ -230,10 +232,11 @@ html = """<!DOCTYPE html>
 </html>"""
 
 try:
-    for fn in ["script.js", "style.css", "index.html"]:
+    for fn in ["script.js", "style.css"]:
         shutil.copyfile(fn, output(fn))
 except Exception:
     pass
+
 
 rw, rh = 256, 224
 tw, th = 8, 8
@@ -258,18 +261,42 @@ def rename_map(s):
     return slugify(s)
 
 
-def rename_map_title(s):
+def get_location_names():
+    strings = configparser.ConfigParser()
+    with open(content("ValkyrieGame.txt"), encoding="utf-8-sig") as strings_f:
+        strings.read_file(strings_f)
+    strings = dict(strings.items())
+
+    with get_file("Minimaps.ndd") as minimaps_f:
+        root = parse_ndd_xml(minimaps_f)
+
+    string_by_collid = {
+        coll.get("id"): strings[coll.get("locsection")][coll.get("lockey")]
+        for coll in root.find("./collections")
+    }
     return {
+        mmap.get("name"): string.capwords(string_by_collid[mmap.get("collid")])
+        for mmap in root.find("./minimaps")
+    }
+
+
+location_names = get_location_names()
+location_names.update(
+    {
+        "Desert Temple": "Desert Ruins Entrance",
         "Entry Map": "Dreams",
-        "Astronomer Tower": "Starlight Terrace",
-        "Ice World": "Glacial Palace",
-        "Skyworld": "Sky Pillars",
-        "Subterranea": "Waterways",
-        "Styx": "Underworld Entrance",
         "Styx Overworld": "Underworld Map",
         "Styx Caves": "Underworld Caves",
-        "Fire Realm": "Hollow King's Lair",
-    }.get(s, s)
+        "Hollow Heart": "Hollow Heart",
+    }
+)
+
+
+def location_name(s):
+    return location_names.get(s, s)
+
+
+locations = {}
 
 
 def coord_id(x, y):
@@ -288,6 +315,8 @@ def produce_map(map, anim_phase):
     e = xml.SubElement(edisplay, "div", {"id": "offset"})
 
     map_name = map.get("name")
+    locations[map_name] = []
+
     palettes = [all_palettes[palette.get("name")] for palette in map.iter("palette")]
 
     backcolor = QColor(map.get("backcolor"))
@@ -503,7 +532,6 @@ def produce_map(map, anim_phase):
         room_img = QImage(rw, rh, QImage.Format_RGBA8888)
         room_img.fill(qt.transparent)
         room_p = QPainter(room_img)
-        room_p.setPen(QPen(qt.green, 1))
         for x, y in itertools.product(range(rtw), range(rth)):
             bg_collision = None
             for fg in [False, True]:
@@ -616,7 +644,13 @@ def produce_map(map, anim_phase):
             eregion, {"left": x * rw, "top": y * rh, "width": w * rw, "height": h * rh}
         )
 
-        map_f.read(unpack_int(map_f))
+        modifier_size = unpack_int(map_f)
+        if not modifier_size:
+            continue
+        root = xml.fromstringlist((b"<root>", map_f.read(modifier_size), b"</root>"))
+        minimap = root.find("./minimap")
+        if minimap is not None:
+            locations[map_name].append((minimap.get("name"), (x, y)))
 
     for x, y in remaining_rooms:
         eregion = xml.SubElement(e, "div", {"class": "region"})
@@ -628,7 +662,7 @@ def produce_map(map, anim_phase):
     full_p.end()
 
     body = expand_html(pretty_xml(edisplay, indent="    ").split("\n", 1)[1].strip())
-    result = html.format(title=rename_map_title(map_name), body=body)
+    result = html.format(title=location_name(map_name), body=body)
     with open(output("{}.html".format(rename_map(map_name))), "w") as html_f:
         html_f.write(result)
 
@@ -686,3 +720,36 @@ with concurrent.futures.ThreadPoolExecutor() as pool:
         print()
 
     concurrent.futures.wait(futures)
+
+
+locations["Entry Map"].insert(0, ("<strong>Game start</strong>", (1, 0)))
+
+
+def locations_html():
+    yield "<ul>"
+    for map_name, locs in locations.items():
+        items = [location_name(map)]
+        locdict = collections.defaultdict(list)
+        for loc, coord in locs:
+            locdict[location_name(loc)].append(coord)
+        if len(locdict) == 1 and map_name not in location_names:
+            [map_alias] = locdict.keys()
+            locdict.clear()
+        else:
+            map_alias = location_name(map_name)
+        if map_alias in ["Overworld Map", "Underworld Map"]:
+            map_alias = f"<strong>{map_alias}</strong>"
+
+        yield f'    <li><a href="{rename_map(map_name)}.html">{map_alias}</a><ul>'
+        for loc_alias, coords in locdict.items():
+            coord = (
+                int(statistics.mean(x for x, y in coords)),
+                int(statistics.mean(y for x, y in coords)),
+            )
+            yield f'        <li><a href="{rename_map(map_name)}.html#room-{coord_id(*coord)}">{loc_alias}</a></li>'
+        yield f"    </ul></li>"
+
+
+with open("index.html") as in_f, open(output("index.html"), "w") as out_f:
+    index_content = in_f.read()
+    out_f.write(index_content.replace("{locations}", "\n".join(locations_html())))
