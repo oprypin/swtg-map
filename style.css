@@ -106,3 +106,12 @@ a:active {
 a:hover {
     color: #ff9200;
 }
+
+@media
+(-webkit-min-device-pixel-ratio: 2),
+(min-resolution: 2dppx) {
+    body {
+        image-rendering: crisp-edges;
+        image-rendering: pixelated;
+    }
+}
